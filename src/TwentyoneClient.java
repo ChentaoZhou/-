@@ -57,7 +57,8 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 					}
 					if(p.getMessageType().equals("CARD")) {
 						parent.stateLabel.setText("-----Game Start-----");
-						parent.resultLabel.setText("You have draw card: " + ((Card) p.getObject()).getName());
+						parent.cardPanel.add(new JLabel(((Card) p.getObject()).getName()));
+						parent.resultLabel.setText("You draw card: " + ((Card) p.getObject()).getName());
 					}
 				}
 			} catch (ClassNotFoundException | IOException e) {

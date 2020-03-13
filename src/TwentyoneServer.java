@@ -235,16 +235,20 @@ public class TwentyoneServer implements Runnable {
 		for (ClientHandler client : clients) {
 			Card c = deck.remove(0);
 			client.handCards.add(c);
+			view.addText(client.name+" has draw: "+ c.getName()+"\n");
+			try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
 			Package p = new Package("CARD", c);
 			client.send(p);
-			//try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
+			
 		}
 		for (ClientHandler client : clients) {
 			Card c = deck.remove(0);
 			client.handCards.add(c);
+			view.addText(client.name+" has draw: "+ c.getName()+"\n");
+			try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
 			Package p = new Package("CARD", c);
 			client.send(p);
-			//try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
+			
 		}
 	}
 	
