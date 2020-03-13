@@ -1,0 +1,96 @@
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JButton;
+import java.awt.Font;
+import javax.swing.JTextField;
+
+public class ServerView extends JFrame implements ActionListener{
+	private TwentyoneServer server;
+	private JTextArea textArea;
+	private JButton startButton;
+	private JLabel inGamePlayerLabel, waitPlayerLabel;
+	private JScrollPane sp;
+	
+	public ServerView(TwentyoneServer server) {
+		this.server = server;
+		
+		getContentPane().setLayout(null);
+		this.setSize(500,300);
+		
+		inGamePlayerLabel = new JLabel("0 players in Game");
+		inGamePlayerLabel.setFont(new Font("Tw Cen MT", Font.PLAIN, 17));
+		inGamePlayerLabel.setBounds(10, 10, 175, 44);
+		getContentPane().add(inGamePlayerLabel);
+		
+		waitPlayerLabel = new JLabel("0 players in waiting list");
+		waitPlayerLabel.setFont(new Font("Tw Cen MT", Font.PLAIN, 17));
+		waitPlayerLabel.setBounds(10, 65, 175, 44);
+		getContentPane().add(waitPlayerLabel);
+		
+		startButton = new JButton("start");
+		startButton.setFont(new Font("Tw Cen MT", Font.BOLD, 19));
+		startButton.setBounds(31, 182, 97, 39);
+		startButton.addActionListener(this);
+		getContentPane().add(startButton);
+		
+		textArea = new JTextArea();
+		textArea.setBounds(195, 11, 260, 232);
+		
+		
+		sp = new JScrollPane(textArea);
+		sp.setBounds(195, 11, 260, 232);
+		getContentPane().add(sp);
+		this.setVisible(true);
+		
+	}
+	//methods for changing the number of players in the Labels
+	public void refreshInandWait(int in,int wait) {
+		refreshIn(in);
+		refreshWait(wait);
+	}
+	public void refreshIn(int in) {
+		inGamePlayerLabel.setText(in+" players in Game.");
+	}
+	public void refreshWait(int wait) {
+		waitPlayerLabel.setText(wait+" players in Game");
+	}
+	
+	
+	public JTextArea getTextArea() {
+		return textArea;
+	}
+	public void clearTextArea() {
+		this.textArea.setText("");
+	}
+	//add String to textArea track the process
+	public void addText(String line) {
+		this.textArea.append(line);
+	}
+	public JLabel getInGamePlayerLabel() {
+		return inGamePlayerLabel;
+	}
+
+
+	public JLabel getWaitPlayerLabel() {
+		return waitPlayerLabel;
+	}
+
+	/**
+	 * This calls all operation methods for conducting game
+	 * 这个方法真正的在调用所有的游戏运行方法
+	 * **/
+	public void actionPerformed(ActionEvent e) {
+		if(e.getSource() == startButton) {
+			server.initiate();					//initiate game, create deck
+			if(server.getDealer()==null) server.findDealer(); //find a dealer
+			server.dealCard();									//game start, deal two card to each player
+			
+		}
+		
+	}
+}

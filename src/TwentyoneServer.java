@@ -1,0 +1,272 @@
+//未解决的问题：1.同名的client
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Scanner;
+
+public class TwentyoneServer implements Runnable {
+
+	/**
+	 * inner class ClientHandler which used for receiving message from each client
+	 * thread and response to these revived messages.
+	 **/
+	private class ClientHandler implements Runnable {
+		private Socket client;
+		private TwentyoneServer parent = null;
+		private ObjectInputStream inputStream = null;
+		private ObjectOutputStream outputStream = null;
+		private String name;
+		private ArrayList<Card> handCards = new ArrayList<Card>();
+		private boolean isDealer;
+		
+
+		// constructor of inner class
+		public ClientHandler(Socket client, TwentyoneServer parent) {
+			this.client = client;
+			this.parent = parent;
+			try {
+				outputStream = new ObjectOutputStream(this.client.getOutputStream());
+				inputStream = new ObjectInputStream(this.client.getInputStream());
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+
+		// z这里写：收消息，收到之后做什么
+		public void run() {
+			try {
+				Package p = null;
+				while ((p = (Package) inputStream.readObject()) != null) {
+					if(p.getMessageType().equals("QUIT")) {
+						ArrayList<ClientHandler> deleteArray = new ArrayList<ClientHandler>();
+						deleteArray.add(this);
+						parent.quit(deleteArray);
+					}
+				}
+				inputStream.close();
+			}catch(SocketException e) {
+				
+			}catch (IOException e) {
+				e.printStackTrace();
+			}catch(ClassNotFoundException e) {
+				e.printStackTrace();
+			}
+		}
+
+		/**
+		 * this is a method used for sending package to client
+		 **/
+		public void send(Package p) {
+			try {
+				outputStream.writeObject(p);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	// z这里开始server主类
+	private static ServerSocket server;
+	private static ArrayList<Card> deck;
+	private ArrayList<ClientHandler> clients = new ArrayList<ClientHandler>();
+	private ArrayList<ClientHandler> waitingClients = new ArrayList<ClientHandler>();
+	private ServerView view;
+	private ClientHandler dealer;
+
+	// constructor
+	public TwentyoneServer() {
+		view = new ServerView(this);
+		try {
+			server = new ServerSocket(8888);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void run() {
+		while (true) {
+			Socket clientSocket = null;
+			try {
+				clientSocket = server.accept();
+				System.out.println("New client connected");
+				view.addText("New client connected" + "\n");
+				ClientHandler client = new ClientHandler(clientSocket, this);
+				// this is a step to compulsory register client first
+				Package p;
+				while ((p = (Package) client.inputStream.readObject()) != null) {
+					// new client registers,create a new player to list by the received name.
+					if (p.getMessageType().equals("PLAYER")) {
+						client.name = (String) p.getObject();
+						this.waitingClients.add(client);
+						view.addText(client.name + " has joined in" + "\n");
+						view.getWaitPlayerLabel().setText(waitingClients.size() + " players in waiting list");
+						Package waitp = new Package("GAME_STATE", "Previous round is still going, please wait..");
+						client.send(waitp);
+					}
+					break;
+				}
+				new Thread(client).start();
+			} catch (ClassNotFoundException | IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	/**
+	 * method for removing target clientHandler
+	 * must use this to remove client from ArrayList
+	 * **/
+	public void quit(ArrayList<ClientHandler> a) {
+		clients.removeAll(a);
+		waitingClients.removeAll(a);
+		view.refreshInandWait(clients.size(), waitingClients.size());
+		view.addText(a.get(0).name+" leave the game-------"+"\n");
+	}
+	
+
+	/**
+	 * method for finding the target clientHandler 
+	 * 此方法暂时还未被使用到
+	 * **/
+	public ClientHandler findClient(String name) {
+		for(ClientHandler client:clients) {
+			if(client.name.equals("name")) return client;
+		}
+		for(ClientHandler client:waitingClients) {
+			if(client.name.equals("name")) return client;
+		}
+		return null;
+		
+	}
+	
+
+
+	/**
+	 * initiate another round of game: add clients in waiting list to in game list.
+	 * 开始新一轮游戏，所有waiting列表中的玩家被加入游戏
+	 * **/ 
+	public void initiate() {
+		for (ClientHandler client : waitingClients) {
+			clients.add(client);
+		}
+		waitingClients.clear();
+		view.refreshWait(waitingClients.size());
+		view.refreshIn(clients.size());
+		view.addText("----Game will start soon!----" + "\n");
+		for (ClientHandler client : clients) {
+			Package p = new Package("GAME_STATE", "Game Start!");
+			client.send(p);
+		}
+	}
+
+	/**
+	 * in the start of an round, Server need to select a dealer if there is no
+	 * dealer by the allocated card.
+	 * 在游戏开始前，如果没有dealer，通过发牌选出一个庄家.
+	 * 这里注意client手牌有所增加
+	 **/
+	public void findDealer() {
+		createDeck();
+		outer: while (true) {
+			for (ClientHandler client : clients) {
+				Card c = deck.remove(0);				//删除了原本需要先加进玩家手牌的操作，所以在对局开始前不需要再清空玩家手牌了
+				Package p = new Package("DEALER", c);
+				client.send(p);
+				try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
+				view.addText(client.name+" draw: "+c.getName()+"\n");
+				if (c.getName().equals("A")) {
+					dealer = client;
+					client.isDealer = true;
+					view.addText("Dealer has been confirmed: "+client.name+"\n"+"------------------"+"\n");
+					
+					//send message to each client and notify them there is a dealer
+					for(ClientHandler cli:clients) {
+						cli.send(new Package("GAME_STATE","Dealer is: "+client.name));
+					}
+					client.send(new Package("GAME_STATE", "You are the dealer this round!"));
+					break outer;
+				}
+			}
+		}
+	}
+	
+	/**
+	 * get all cards and store them in a ArrayList deck
+	 * 重新读取所有的卡牌并存入 deck 这个ArrayList中
+	 **/
+	public void createDeck() {
+		FileReader fr;
+		Scanner s = null;
+		deck = new ArrayList<Card>();
+		try {
+			fr = new FileReader("card.txt");
+			s = new Scanner(fr);
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+		while (s.hasNextLine()) {
+			String line = s.nextLine();
+			String[] info = line.trim().split("\\s+");
+			Card card = new Card(info[0], Integer.parseInt(info[1]));
+			deck.add(card);
+		}
+		Collections.shuffle(deck);
+	}
+
+	/**
+	 * this is a method used for dealing two cards at first round
+	 * 这个方法用于在对局刚开始给玩家发两张手牌
+	 * 注意：这里已经用过createDeck()方法洗过牌
+	 **/
+	public void dealCard() {
+		// create the deck first
+		createDeck();
+
+		//这里分两个循环给玩家发牌
+		for (ClientHandler client : clients) {
+			Card c = deck.remove(0);
+			client.handCards.add(c);
+			Package p = new Package("CARD", c);
+			client.send(p);
+			//try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
+		}
+		for (ClientHandler client : clients) {
+			Card c = deck.remove(0);
+			client.handCards.add(c);
+			Package p = new Package("CARD", c);
+			client.send(p);
+			//try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
+		}
+	}
+	
+	
+	
+	
+	
+	
+
+	public ClientHandler getDealer() {
+		return dealer;
+	}
+
+	public static void main(String[] args) {
+		Thread t = new Thread(new TwentyoneServer());
+		t.start();
+		try {
+			t.join();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+}
