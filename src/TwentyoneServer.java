@@ -1,4 +1,9 @@
-//未解决的问题：1.同名的client
+/**
+ * 未解决的问题：1.同名的client
+ * 接下来要做的事情：给每个client加上计算他们当前所有卡牌分数的功能，一个pointCounter静态类
+ * 					如果分数爆了，游戏结束，失去分数，回到waiting list。（要记得在standCounter中减1）
+ * 					然后庄家点了不再要牌之后，清算比自己分高的有多少，分低的有多少，相应的减去分数。
+ * **/
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
