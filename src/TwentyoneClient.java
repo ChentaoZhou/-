@@ -11,6 +11,7 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.SwingConstants;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.SoftBevelBorder;
 import javax.swing.border.LineBorder;
@@ -55,10 +56,33 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						parent.stateLabel.setText("This is the stage of choosing dealer by card");
 						parent.resultLabel.setText("You have draw card: " + ((Card) p.getObject()).getName());
 					}
-					if(p.getMessageType().equals("CARD")) {
+					if(p.getMessageType().equals("DEALER_LABEL")){
+						parent.dealerLabel.setText("Dealer");
+					}
+					if(p.getMessageType().equals("CARDS")) {
 						parent.stateLabel.setText("-----Game Start-----");
-						parent.cardPanel.add(new JLabel(((Card) p.getObject()).getName()));
+						JLabel label = new JLabel(((Card) p.getObject()).getName());
+						label.setHorizontalAlignment(SwingConstants.CENTER);
+						parent.cardPanel.add(label);
 						parent.resultLabel.setText("You draw card: " + ((Card) p.getObject()).getName());
+					}
+					if(p.getMessageType().equals("CARD")) {
+						JLabel label = new JLabel(((Card) p.getObject()).getName());
+						label.setHorizontalAlignment(SwingConstants.CENTER);
+						parent.cardPanel.add(label);
+						parent.resultLabel.setText("Ask for another card, draw: "+((Card) p.getObject()).getName());
+					}
+					if(p.getMessageType().equals("QUERY")) {
+						parent.resultLabel.setText((String) p.getObject());
+						parent.newCardButton.setEnabled(true);
+						parent.standButton.setEnabled(true);
+					}
+					if(p.getMessageType().equals("DEALER_MESSAGE")) {
+						parent.resultLabel.setText((String) p.getObject());
+					}
+					if(p.getMessageType().equals("ACTIVATE_DEALER")) {
+						parent.newCardButton.setEnabled(true);
+						parent.standButton.setEnabled(true);
 					}
 				}
 			} catch (ClassNotFoundException | IOException e) {
@@ -75,14 +99,16 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 	private Socket server = null;
 	private String name = "PlayerX";
 	private ObjectOutputStream outputStream;
-	private JLabel stateLabel, nameLabel, stackLabel, resultLabel;
-	JButton ContinueButton, quitButton, newCardButton, standButton;
+	private JLabel stateLabel, nameLabel, stackLabel, resultLabel,dealerLabel;
+	private JButton ContinueButton, quitButton, newCardButton, standButton;
 	private JPanel cardPanel;
+	private ReadWorker rw;
 
 	public TwentyoneClient() {
 		getContentPane().setLayout(null);
 		this.setSize(384, 497);
 		name = JOptionPane.showInputDialog(this, "What's your name?");
+		this.setTitle("Welcome to 21  "+ name+" !!!");
 
 		quitButton = new JButton("Quit");
 		quitButton.setBounds(260, 401, 102, 40);
@@ -91,14 +117,19 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 
 		ContinueButton = new JButton("Continue");
 		ContinueButton.setBounds(260, 350, 102, 40);
+		ContinueButton.setEnabled(false);
 		getContentPane().add(ContinueButton);
 
-		newCardButton = new JButton("Another Card");
+		newCardButton = new JButton("Request Card");
 		newCardButton.setBounds(260, 249, 102, 40);
+		newCardButton.setEnabled(false);
+		newCardButton.addActionListener(this);
 		getContentPane().add(newCardButton);
 
 		standButton = new JButton("Stand");
 		standButton.setBounds(260, 299, 102, 40);
+		standButton.setEnabled(false);
+		standButton.addActionListener(this);
 		getContentPane().add(standButton);
 
 		stateLabel = new JLabel("Game State");
@@ -130,6 +161,12 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 		JLabel cardLabel = new JLabel("Your Card");
 		cardLabel.setBounds(10, 180, 102, 27);
 		getContentPane().add(cardLabel);
+		
+		dealerLabel = new JLabel("");
+		dealerLabel.setForeground(new Color(128, 0, 0));
+		dealerLabel.setFont(new Font("Tw Cen MT", Font.ITALIC, 18));
+		dealerLabel.setBounds(208, 123, 112, 40);
+		getContentPane().add(dealerLabel);
 
 		this.setVisible(true);
 
@@ -150,8 +187,8 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 			e.printStackTrace();
 		}
 
-		// here we start a inner class object to listen
-		ReadWorker rw = new ReadWorker(server, this);
+		// here we start a inner class object to listen 这里创建一个内部类对象，监听端口
+		rw = new ReadWorker(server, this);
 		rw.execute();
 		System.out.println("HERE");
 
@@ -176,7 +213,19 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 			send(new Package("QUIT",name));
 			this.dispose();
 		}
+		if(e.getSource()==newCardButton) {
+			send(new Package("MORECARD",name));
+		}
+		if(e.getSource()==standButton) {
+			send(new Package("STAND",name));
+			standTurn();
+			
+		}
 
+	}
+	public void standTurn() {
+		this.newCardButton.setEnabled(false);
+		this.standButton.setEnabled(false);
 	}
 
 	/**
@@ -194,5 +243,4 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 	public static void main(String[] args) {
 		new TwentyoneClient();
 	}
-
 }

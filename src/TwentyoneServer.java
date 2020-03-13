@@ -51,6 +51,23 @@ public class TwentyoneServer implements Runnable {
 						deleteArray.add(this);
 						parent.quit(deleteArray);
 					}
+					if(p.getMessageType().equals("MORECARD")) {
+						parent.dealOneCard(this);
+					}
+					//收到了玩家不再要牌的选择，每次都判断是不是所有除了dealer的玩家都已经选择了stand
+					if(p.getMessageType().equals("STAND")) {
+						if(this.isDealer == true) {
+							
+							
+							//庄家选择不再要牌，进入结算阶段。
+							
+							
+						}
+						parent.standCounter++;
+						if(standCounter >= clients.size()-1) {	//其他玩家都不再要牌，开始庄家的回合
+							parent.activateDealer();
+						}
+					}
 				}
 				inputStream.close();
 			}catch(SocketException e) {
@@ -81,6 +98,7 @@ public class TwentyoneServer implements Runnable {
 	private ArrayList<ClientHandler> waitingClients = new ArrayList<ClientHandler>();
 	private ServerView view;
 	private ClientHandler dealer;
+	private int standCounter;       //count how many players stand,计算多少玩家选择stand
 
 	// constructor
 	public TwentyoneServer() {
@@ -192,6 +210,7 @@ public class TwentyoneServer implements Runnable {
 						cli.send(new Package("GAME_STATE","Dealer is: "+client.name));
 					}
 					client.send(new Package("GAME_STATE", "You are the dealer this round!"));
+					client.send(new Package("DEALER_LABEL","Dealer"));
 					break outer;
 				}
 			}
@@ -237,7 +256,7 @@ public class TwentyoneServer implements Runnable {
 			client.handCards.add(c);
 			view.addText(client.name+" has draw: "+ c.getName()+"\n");
 			try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
-			Package p = new Package("CARD", c);
+			Package p = new Package("CARDS", c);
 			client.send(p);
 			
 		}
@@ -246,11 +265,44 @@ public class TwentyoneServer implements Runnable {
 			client.handCards.add(c);
 			view.addText(client.name+" has draw: "+ c.getName()+"\n");
 			try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
-			Package p = new Package("CARD", c);
+			Package p = new Package("CARDS", c);
 			client.send(p);
 			
 		}
+		//z在这里发完了牌，询问是否要额外加牌，或是stand
+		for(ClientHandler client:clients) {
+			try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
+			Package p = new Package("GAME_STATE", "----Game is processing----");
+			client.send(p);
+			if(dealer == client) {
+				client.send(new Package("DEALER_MESSAGE","Waiting other players to choose"));//让dealer等待其他玩家选择是否要牌
+			}else {
+			Package p1 = new Package("QUERY", "One more Card or Stand ?");    //询问非dealer的玩家是否要牌
+			client.send(p1);
+			}
+		}
 	}
+	
+	/**
+	 * method for dealing one card if player request.
+	 * 发一张牌给玩家，如果玩家点击了 Request Card
+	 * **/
+	public void dealOneCard(ClientHandler client) {
+		Card card = deck.remove(0);
+		client.handCards.add(card);
+		view.addText(client.name+" ask for another card, draw: "+card.getName()+"\n");
+		try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
+		client.send(new Package("CARD",card));
+	}
+	
+	/**
+	 * Activate dealers turn when other players all have chosen stand
+	 * 激活庄家的选牌或是stand当其他所有玩家都选择不再要牌
+	 * **/
+	public void activateDealer() {
+		dealer.send(new Package("ACTIVATE_DEALER",""));
+	}
+	
 	
 	
 	

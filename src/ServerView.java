@@ -86,6 +86,7 @@ public class ServerView extends JFrame implements ActionListener{
 	 * **/
 	public void actionPerformed(ActionEvent e) {
 		if(e.getSource() == startButton) {
+			startButton.setEnabled(false);
 			server.initiate();					//initiate game, create deck
 			if(server.getDealer()==null) server.findDealer(); //find a dealer
 			server.dealCard();									//game start, deal two card to each player
