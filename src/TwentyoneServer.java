@@ -2,7 +2,7 @@
 /**
  * 未解决的问题：1.同名的client
  * 接下来要做的事情：	庄家在所有玩家都爆了之后要结束游戏
- * 					
+ * 					如果玩家出现了21点 nature vingt-un,该局游戏直接结束，所有人给该玩家两个筹码
  * 					然后庄家点了不再要牌之后，清算比自己分高的有多少，分低的有多少，相应的减去分数。
  * **/
 import java.io.FileNotFoundException;
@@ -95,6 +95,18 @@ public class TwentyoneServer implements Runnable {
 								if(client.isDealer == true) {
 									client.send(new Package("PLAYER_EXPLODE",this.name));
 									view.addText(this.name +" pay one stack to dealer");
+								}
+							}
+							//如果所有Player都爆了，庄家胜利，都等待下一局的开始
+							if(clients.size()<=1) {
+								for(ClientHandler client:clients) {
+									if(client.isDealer == true) {
+										client.send(new Package("ALL_PLAYER_EXPLODE",""));
+										view.addText("All palyer lose, dealer win.");
+									}else {
+										client.send(new Package("GAME_STATE","You lose"));
+										client.send(new Package("MESSAGE","Waiting for another round."));
+									}
 								}
 							}
 						}

@@ -53,8 +53,13 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 			try {
 				while ((p = (Package) inputStream.readObject()) != null) {
 					// ....z这里打开package，根据type做事情
+					//只改变stateLabel标签的文字
 					if (p.getMessageType().equals("GAME_STATE")) {
 						parent.stateLabel.setText((String) p.getObject());
+					}
+					//只改变resultLabel标签的文字
+					if(p.getMessageType().equals("MESSAGE")) {
+						parent.resultLabel.setText((String) p.getObject());
 					}
 					if (p.getMessageType().equals("DEALER")) {
 						parent.stateLabel.setText("This is the stage of choosing dealer by card");
@@ -97,6 +102,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						}
 					
 					}
+					//Server发送QUERY包给每个player，打开他们的Button询问是否要牌
 					if(p.getMessageType().equals("QUERY")) {
 						parent.resultLabel.setText((String) p.getObject());
 						parent.newCardButton.setEnabled(true);
@@ -115,6 +121,14 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						parent.stackLabel.setText("Your Stacks: "+parent.stacks);
 						parent.resultLabel.setText((String) p.getObject()+" is out, stack++");
 					}
+					//（Dealer专享）所有玩家都已经爆牌之后，庄家停止所有行为，等待Server开始下一局
+					if(p.getMessageType().equals("ALL_PLAYER_EXPLODE")) {
+						parent.newCardButton.setEnabled(false);
+						parent.standButton.setEnabled(false);
+						parent.stateLabel.setText("Congraulations~ You win");
+						parent.resultLabel.setText("Waiting for another round start");
+					}
+					
 					//（Dealer专享）只有Dealer会收到DEALER_EXPLODE消息,扣掉对应的筹码数量，这一轮结束
 					if(p.getMessageType().equals("DEALER_EXPLODE")) {
 						int winners = (Integer)p.getObject();
