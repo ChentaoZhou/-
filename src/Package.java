@@ -12,6 +12,8 @@ public class Package implements Serializable{
 	 * QUIT:			notify the server that this client leave the game
 	 * DEALER_MESSAGE:	specific message for dealer
 	 * ACTIVATE_DEALER:	activate dealer's buttons(activate dealer's turn for choose another card or standing)
+	 * PLAYER_EXPLODE:	if ordinary player exploded, send message to dealer, dealer get one stack
+	 * 
 	 * **/
 	
 	//Only contain message
