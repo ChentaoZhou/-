@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.ArrayList;
 
 import javax.swing.JFrame;
 import javax.swing.SwingWorker;
@@ -18,6 +19,9 @@ import javax.swing.border.LineBorder;
 import java.awt.Color;
 import java.awt.GridLayout;
 import java.awt.Font;
+/**
+ * 给Client端加上了ArrayList<Card>,存储接收到的手牌，并传递给计算总分的类来计算分数，打在swing上
+ * **/
 
 public class TwentyoneClient extends JFrame implements ActionListener {
 
@@ -103,6 +107,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 	private JButton ContinueButton, quitButton, newCardButton, standButton;
 	private JPanel cardPanel;
 	private ReadWorker rw;
+	private ArrayList<Card> cards = new ArrayList<Card>();
 
 	public TwentyoneClient() {
 		getContentPane().setLayout(null);
