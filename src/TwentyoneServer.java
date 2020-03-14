@@ -1,9 +1,11 @@
 
 /**
  * 未解决的问题：1.同名的client
- * 接下来要做的事情：	庄家在所有玩家都爆了之后要结束游戏
- * 					如果玩家出现了21点 nature vingt-un,该局游戏直接结束，所有人给该玩家两个筹码
- * 					然后庄家点了不再要牌之后，清算比自己分高的有多少，分低的有多少，相应的减去分数。
+ * 接下来要做的事情：	√	庄家在所有玩家都爆了之后要结束游戏		 
+ * 					√	如果玩家出现了21点 nature vingt-un,该局游戏直接结束，所有人给该玩家两个筹码
+ * 						如果出现了21点，庄家身份将交给该玩家
+ * 						然后庄家点了不再要牌之后，清算比自己分高的有多少，分低的有多少，相应的减去分数。
+ * 						游戏可以重新开始，所有的玩家状态初始化
  * **/
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -33,6 +35,7 @@ public class TwentyoneServer implements Runnable {
 		private String name;
 		private ArrayList<Card> handCards = new ArrayList<Card>();
 		private boolean isDealer;
+		private boolean isNature21Winner;
 
 		// constructor of inner class
 		public ClientHandler(Socket client, TwentyoneServer parent) {
@@ -62,9 +65,27 @@ public class TwentyoneServer implements Runnable {
 					// z收到了玩家不再要牌的选择，每次都判断是不是所有除了dealer的玩家都已经选择了stand
 					if (p.getMessageType().equals("STAND")) {
 						if (this.isDealer == true) {
-
 							// z庄家选择不再要牌，进入结算阶段。
-
+							int dealerPoint = PointCounter.returnPoint(this.handCards);
+							
+							//对比其他玩家的卡牌分数,分为三种情况
+							for(ClientHandler client:clients) {
+								if(!client.isDealer) {
+									int playerPoint = PointCounter.returnPoint(client.handCards);
+									if(playerPoint < dealerPoint) {
+										parent.losers++;		//Dealer一共要加多少筹码
+										client.send(new Package("LOSE",""));
+									}else if(playerPoint > dealerPoint) {
+										parent.winners++;		//Dealer一共要减多少筹码
+										client.send(new Package("WIN",""));
+									}else {
+										client.send(new Package("DRAW",""));
+									}
+									
+								}
+							}
+							int stackChange = losers - winners;
+							this.send(new Package("DEALER_RESULT",stackChange));	//将庄家改变的分数发回给client端
 						}
 						view.addText(this.name + " choose to stand" + "\n");
 						parent.standCounter++;
@@ -78,6 +99,7 @@ public class TwentyoneServer implements Runnable {
 						if (this.isDealer == true) {
 							// 如果是庄家爆炸，该轮结束，所有玩家获得一个筹码，庄家不用进入waiting list
 							parent.dealerExplode();
+							parent.startNewRound();
 							
 						} else {		//如果是普通玩家则进入这个爆炸代码
 							ArrayList<ClientHandler> loser = new ArrayList<ClientHandler>();
@@ -111,7 +133,43 @@ public class TwentyoneServer implements Runnable {
 							}
 						}
 					}
-
+					//有人出现了nature vingt-un，Server返回当前玩家总数的两倍给该玩家（其中不包括该玩家自己）
+					if(p.getMessageType().equals("VINGT-UN")) {
+						parent.nature21Winner = this;
+						nature21Players++;
+						if(nature21Players <= 1) {
+							int reward = 2*(clients.size()-1);
+							this.send(new Package("21REWARD",reward));
+							view.addText(this.name+" get nature 21, big winner. get: "+(reward-2));
+							view.addText("All players pay "+this.name+" 2 stacks");
+							//这里给所有其他玩家都发送消息告知有21点，全部扣2stacks，并进入等待状态
+							for(ClientHandler client:clients) {
+								if(!client.isNature21Winner) {
+									client.send(new Package("21LOSE",this.name));
+									client.send(new Package("RESET_DEALER",""));	//所有人熄灭dealer图标
+									client.isDealer = false;
+								}
+							}
+								
+							//给这个21点玩家设置为新的 Dealer
+							this.isDealer = true;
+							parent.dealer = this;
+							this.send(new Package("DEALER_LABEL",""));	//点亮该玩家的Dealer图标
+						}else {
+							//这里是两个21，平局，没有任何人需要付钱，dealer也不变
+							for(ClientHandler client:clients) {
+								client.send(new Package("MUTI_21PLAYERS",""));
+							}
+							view.addText("More than one nature 21 winner appear, this round over");
+						}
+					}
+					//重新开始一轮游戏
+					if(p.getMessageType().equals("ROUND_OVER")) {
+						parent.startNewRound();
+					}
+					
+					
+					
 				}
 				inputStream.close();
 			} catch (SocketException e) {
@@ -134,7 +192,7 @@ public class TwentyoneServer implements Runnable {
 			}
 		}
 	}
-
+	
 	// z这里开始server主类
 	private static ServerSocket server;
 	private static ArrayList<Card> deck;
@@ -145,6 +203,8 @@ public class TwentyoneServer implements Runnable {
 	private int standCounter = 0; // count how many players stand,计算多少玩家选择stand
 	private int losers = 0;			//只用于计算正常对局下比dealer分数低的玩家（不计入爆炸的玩家）
 	private int winners = 0;
+	private int nature21Players = 0;
+	private ClientHandler nature21Winner;
 
 	// constructor
 	public TwentyoneServer() {
@@ -210,6 +270,30 @@ public class TwentyoneServer implements Runnable {
 		}
 		return null;
 
+	}
+	
+	/**
+	 * 重新开始一局游戏，重置所有玩家状态
+	 * **/
+	public void startNewRound() {
+		standCounter = 0;
+		losers = 0;
+		winners = 0;
+		nature21Players = 0;
+		nature21Winner = null;
+		for(ClientHandler client:clients) {
+			client.isNature21Winner = false;
+			client.handCards.clear();
+			client.send(new Package("INITIATE",""));
+		}
+		for(ClientHandler client:waitingClients) {
+			client.isNature21Winner = false;
+			client.handCards.clear();
+			client.send(new Package("INITIATE",""));
+		}
+		
+		view.getStartButton().setEnabled(true);
+		
 	}
 
 	/**
@@ -301,11 +385,7 @@ public class TwentyoneServer implements Runnable {
 			Card c = deck.remove(0);
 			client.handCards.add(c);
 			view.addText(client.name + " has draw: " + c.getName() + "\n");
-			try {
-				Thread.sleep(500);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
+			try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
 			Package p = new Package("CARDS", c);
 			client.send(p);
 
@@ -314,22 +394,17 @@ public class TwentyoneServer implements Runnable {
 			Card c = deck.remove(0);
 			client.handCards.add(c);
 			view.addText(client.name + " has draw: " + c.getName() + "\n");
-			try {
-				Thread.sleep(500);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
+			try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
 			Package p = new Package("CARDS", c);
 			client.send(p);
 
 		}
 		// z在这里发完了牌，询问是否要额外加牌，或是stand
+		view.addText("nature21Player: "+nature21Players+"\n");
+		try {Thread.sleep(5);} catch (InterruptedException e1) {e1.printStackTrace();}
+		if(nature21Players<1) {
 		for (ClientHandler client : clients) {
-			try {
-				Thread.sleep(500);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
+			try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
 			Package p = new Package("GAME_STATE", "----Game is processing----");
 			client.send(p);
 			if (dealer == client) {
@@ -338,6 +413,7 @@ public class TwentyoneServer implements Runnable {
 				Package p1 = new Package("QUERY", "One more Card or Stand ?"); // 询问非dealer的玩家是否要牌
 				client.send(p1);
 			}
+		}
 		}
 	}
 
@@ -379,6 +455,7 @@ public class TwentyoneServer implements Runnable {
 			}
 		}
 	}
+	
 	
 	
 	

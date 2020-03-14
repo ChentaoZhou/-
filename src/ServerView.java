@@ -20,7 +20,7 @@ public class ServerView extends JFrame implements ActionListener{
 		this.server = server;
 		
 		getContentPane().setLayout(null);
-		this.setSize(500,300);
+		this.setSize(693,305);
 		
 		inGamePlayerLabel = new JLabel("0 players in Game");
 		inGamePlayerLabel.setFont(new Font("Tw Cen MT", Font.PLAIN, 17));
@@ -43,7 +43,7 @@ public class ServerView extends JFrame implements ActionListener{
 		
 		
 		sp = new JScrollPane(textArea);
-		sp.setBounds(195, 11, 260, 232);
+		sp.setBounds(195, 11, 454, 234);
 		getContentPane().add(sp);
 		this.setVisible(true);
 		
@@ -79,6 +79,9 @@ public class ServerView extends JFrame implements ActionListener{
 	public JLabel getWaitPlayerLabel() {
 		return waitPlayerLabel;
 	}
+	public JButton getStartButton() {
+		return startButton;
+	}
 
 	/**
 	 * This calls all operation methods for conducting game
@@ -94,4 +97,5 @@ public class ServerView extends JFrame implements ActionListener{
 		}
 		
 	}
+
 }
