@@ -3,9 +3,12 @@
  * 未解决的问题：1.同名的client
  * 接下来要做的事情：	√	庄家在所有玩家都爆了之后要结束游戏		 
  * 					√	如果玩家出现了21点 nature vingt-un,该局游戏直接结束，所有人给该玩家两个筹码
- * 						如果出现了21点，庄家身份将交给该玩家
- * 						然后庄家点了不再要牌之后，清算比自己分高的有多少，分低的有多少，相应的减去分数。
- * 						游戏可以重新开始，所有的玩家状态初始化
+ * 					√	如果出现了21点，庄家身份将交给该玩家
+ * 					√	然后庄家点了不再要牌之后，清算比自己分高的有多少，分低的有多少，相应的减去分数。
+ * 					√	游戏可以重新开始，所有的玩家状态初始化
+ * 问题：				√	一个玩家爆了以后，dealer的button会提前点亮
+ * 					√	出现nature 21后，21获胜者自己也收到失败消息，（忘记标记isNature21Winner值了）
+ * 					√	Dealer选择stand后，清算结束dealer的button会再次亮起，问题出在接受stand后会再判断一次stand的玩家数量
  * **/
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -68,7 +71,7 @@ public class TwentyoneServer implements Runnable {
 							// z庄家选择不再要牌，进入结算阶段。
 							int dealerPoint = PointCounter.returnPoint(this.handCards);
 							
-							//对比其他玩家的卡牌分数,分为三种情况
+							//z对比其他玩家的卡牌分数,分为三种情况
 							for(ClientHandler client:clients) {
 								if(!client.isDealer) {
 									int playerPoint = PointCounter.returnPoint(client.handCards);
@@ -85,23 +88,25 @@ public class TwentyoneServer implements Runnable {
 								}
 							}
 							int stackChange = losers - winners;
-							this.send(new Package("DEALER_RESULT",stackChange));	//将庄家改变的分数发回给client端
-						}
-						view.addText(this.name + " choose to stand" + "\n");
-						parent.standCounter++;
-						if (standCounter >= clients.size() - 1) { // 其他玩家都不再要牌，开始庄家的回合
-							parent.activateDealer();
+							view.addText("This round over, within rest players, dealer earn: "+stackChange+"\n");
+							this.send(new Package("DEALER_RESULT",stackChange));	//z将庄家改变的分数发回给client端
+						}else {
+							view.addText(this.name + " choose to stand" + "\n");
+							parent.standCounter++;
+							if (standCounter >= clients.size() - 1) { // z其他玩家都不再要牌，开始庄家的回合
+								parent.activateDealer();
+							}
 						}
 					}
-					// 收到了玩家手牌爆炸的消息，把玩家删除这轮游戏放进waiting list,同时要减去standCounter（爆掉相当于stand）
+					// z收到了玩家手牌爆炸的消息，把玩家删除这轮游戏放进waiting list,同时要减去standCounter（爆掉相当于stand）
 					if (p.getMessageType().equals("EXPLOSION")) {
 						
 						if (this.isDealer == true) {
-							// 如果是庄家爆炸，该轮结束，所有玩家获得一个筹码，庄家不用进入waiting list
+							//z 如果是庄家爆炸，该轮结束，所有玩家获得一个筹码，庄家不用进入waiting list
 							parent.dealerExplode();
 							parent.startNewRound();
 							
-						} else {		//如果是普通玩家则进入这个爆炸代码
+						} else {		//z如果是普通玩家则进入这个爆炸代码
 							ArrayList<ClientHandler> loser = new ArrayList<ClientHandler>();
 							loser.add(this);
 							clients.removeAll(loser);
@@ -109,17 +114,20 @@ public class TwentyoneServer implements Runnable {
 							view.refreshInandWait(clients.size(), waitingClients.size());
 							view.addText(this.name + " loses this round,in waiting list-------" + "\n");
 							parent.standCounter++;
-							if (standCounter >= clients.size() - 1) { // 其他玩家都爆炸或者stand后，开始庄家的回合
+							view.addText("standCounter: "+standCounter+"\n");
+							view.addText("clients.size() "+clients.size()+"\n");
+							if (standCounter >= clients.size()) { // z其他玩家都爆炸或者stand后，开始庄家的回合
+								view.addText("Dealer's Buttons are activated."+"\n");
 								parent.activateDealer();
 							}
-							//此代码为给庄家加上一个筹码
+							//z此代码为给庄家加上一个筹码
 							for(ClientHandler client:clients) {
 								if(client.isDealer == true) {
 									client.send(new Package("PLAYER_EXPLODE",this.name));
-									view.addText(this.name +" pay one stack to dealer");
+									view.addText(this.name +" pay one stack to dealer"+"\n");
 								}
 							}
-							//如果所有Player都爆了，庄家胜利，都等待下一局的开始
+							//z如果所有Player都爆了，庄家胜利，都等待下一局的开始
 							if(clients.size()<=1) {
 								for(ClientHandler client:clients) {
 									if(client.isDealer == true) {
@@ -130,40 +138,44 @@ public class TwentyoneServer implements Runnable {
 										client.send(new Package("MESSAGE","Waiting for another round."));
 									}
 								}
+								//z重新开始一轮游戏
+								parent.startNewRound();
 							}
 						}
 					}
-					//有人出现了nature vingt-un，Server返回当前玩家总数的两倍给该玩家（其中不包括该玩家自己）
+					//z有人出现了nature vingt-un，Server返回当前玩家总数的两倍给该玩家（其中不包括该玩家自己）
 					if(p.getMessageType().equals("VINGT-UN")) {
 						parent.nature21Winner = this;
+						this.isNature21Winner = true;
 						nature21Players++;
+						view.addText("first 21: "+nature21Players);
 						if(nature21Players <= 1) {
 							int reward = 2*(clients.size()-1);
 							this.send(new Package("21REWARD",reward));
-							view.addText(this.name+" get nature 21, big winner. get: "+(reward-2));
-							view.addText("All players pay "+this.name+" 2 stacks");
-							//这里给所有其他玩家都发送消息告知有21点，全部扣2stacks，并进入等待状态
+							view.addText(this.name+" get nature 21, big winner. get: "+(reward-2)+"\n");
+							//view.addText("All players pay "+this.name+" 2 stacks"+"\n");
+							//z这里给所有其他玩家都发送消息告知有21点，全部扣2stacks，并进入等待状态
 							for(ClientHandler client:clients) {
 								if(!client.isNature21Winner) {
 									client.send(new Package("21LOSE",this.name));
-									client.send(new Package("RESET_DEALER",""));	//所有人熄灭dealer图标
+									client.send(new Package("RESET_DEALER",""));	//z所有人熄灭dealer图标
 									client.isDealer = false;
 								}
 							}
 								
-							//给这个21点玩家设置为新的 Dealer
+							//z给这个21点玩家设置为新的 Dealer
 							this.isDealer = true;
 							parent.dealer = this;
-							this.send(new Package("DEALER_LABEL",""));	//点亮该玩家的Dealer图标
+							this.send(new Package("DEALER_LABEL",""));	//z点亮该玩家的Dealer图标
 						}else {
-							//这里是两个21，平局，没有任何人需要付钱，dealer也不变
+							//z这里是两个21，平局，没有任何人需要付钱，dealer也不变
 							for(ClientHandler client:clients) {
 								client.send(new Package("MUTI_21PLAYERS",""));
 							}
 							view.addText("More than one nature 21 winner appear, this round over");
 						}
 					}
-					//重新开始一轮游戏
+					//z重新开始一轮游戏
 					if(p.getMessageType().equals("ROUND_OVER")) {
 						parent.startNewRound();
 					}
@@ -201,7 +213,7 @@ public class TwentyoneServer implements Runnable {
 	private ServerView view;
 	private ClientHandler dealer;
 	private int standCounter = 0; // count how many players stand,计算多少玩家选择stand
-	private int losers = 0;			//只用于计算正常对局下比dealer分数低的玩家（不计入爆炸的玩家）
+	private int losers = 0;			//z只用于计算正常对局下比dealer分数低的玩家（不计入爆炸的玩家）
 	private int winners = 0;
 	private int nature21Players = 0;
 	private ClientHandler nature21Winner;
@@ -322,7 +334,7 @@ public class TwentyoneServer implements Runnable {
 		createDeck();
 		outer: while (true) {
 			for (ClientHandler client : clients) {
-				Card c = deck.remove(0); // 删除了原本需要先加进玩家手牌的操作，所以在对局开始前不需要再清空玩家手牌了
+				Card c = deck.remove(0); // z删除了原本需要先加进玩家手牌的操作，所以在对局开始前不需要再清空玩家手牌了
 				Package p = new Package("DEALER", c);
 				client.send(p);
 				try {
@@ -380,7 +392,7 @@ public class TwentyoneServer implements Runnable {
 		// create the deck first
 		createDeck();
 
-		// 这里分两个循环给玩家发牌
+		// z这里分两个循环给玩家发牌
 		for (ClientHandler client : clients) {
 			Card c = deck.remove(0);
 			client.handCards.add(c);
@@ -400,8 +412,9 @@ public class TwentyoneServer implements Runnable {
 
 		}
 		// z在这里发完了牌，询问是否要额外加牌，或是stand
+		
+		try {Thread.sleep(500);} catch (InterruptedException e1) {e1.printStackTrace();}
 		view.addText("nature21Player: "+nature21Players+"\n");
-		try {Thread.sleep(5);} catch (InterruptedException e1) {e1.printStackTrace();}
 		if(nature21Players<1) {
 		for (ClientHandler client : clients) {
 			try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
@@ -414,6 +427,8 @@ public class TwentyoneServer implements Runnable {
 				client.send(p1);
 			}
 		}
+		}else {
+			startNewRound();
 		}
 	}
 
@@ -444,14 +459,14 @@ public class TwentyoneServer implements Runnable {
 	 * 庄家手牌爆了，这一轮游戏结束，给所有仍在对局中的玩家发一个筹码
 	 * **/
 	public void dealerExplode() {
-		winners = clients.size()-1;				//庄家在爆了之后没有被移入waiting list，所以clients list中仍旧包含庄家
+		winners = clients.size()-1;				//z庄家在爆了之后没有被移入waiting list，所以clients list中仍旧包含庄家
 		view.addText("Dealer exploded, survivers get a stack!!!"+"\n");
 		view.addText("There are: "+winners+" winners");
 		for(ClientHandler client: clients) {
 			if(client.isDealer == true) {
 				client.send(new Package("DEALER_EXPLODE",winners)); //这里winner是int但是可以编译，应该是自动装箱改为Integer
 			}else {
-				client.send(new Package("WIN",""));
+				client.send(new Package("WIN_DEALER_EXPLODED",""));
 			}
 		}
 	}

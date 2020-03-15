@@ -57,7 +57,7 @@ public class ServerView extends JFrame implements ActionListener{
 		inGamePlayerLabel.setText(in+" players in Game.");
 	}
 	public void refreshWait(int wait) {
-		waitPlayerLabel.setText(wait+" players in Game");
+		waitPlayerLabel.setText(wait+" players are waiting");
 	}
 	
 	
