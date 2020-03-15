@@ -8,13 +8,29 @@ import javax.swing.JTextArea;
 import javax.swing.JButton;
 import java.awt.Font;
 import javax.swing.JTextField;
+import javax.swing.SwingWorker;
 
 public class ServerView extends JFrame implements ActionListener{
+	
+	private class ServerWorker extends SwingWorker<Void, Void> {
+
+		protected Void doInBackground() throws Exception {
+			startButton.setEnabled(false);
+			server.initiate();					//initiate game, create deck
+			if(server.getDealer()==null) server.findDealer(); //find a dealer
+			server.dealCard();
+			return null;
+		}
+		
+		
+	}
+
 	private TwentyoneServer server;
 	private JTextArea textArea;
 	private JButton startButton;
 	private JLabel inGamePlayerLabel, waitPlayerLabel;
 	private JScrollPane sp;
+	private ServerWorker sw;
 	
 	public ServerView(TwentyoneServer server) {
 		this.server = server;
@@ -64,7 +80,7 @@ public class ServerView extends JFrame implements ActionListener{
 	public JTextArea getTextArea() {
 		return textArea;
 	}
-	public void clearTextArea() {
+	public void clearTextArea() { 
 		this.textArea.setText("");
 	}
 	//add String to textArea track the process
@@ -89,13 +105,12 @@ public class ServerView extends JFrame implements ActionListener{
 	 * **/
 	public void actionPerformed(ActionEvent e) {
 		if(e.getSource() == startButton) {
-			startButton.setEnabled(false);
-			server.initiate();					//initiate game, create deck
-			if(server.getDealer()==null) server.findDealer(); //find a dealer
-			server.dealCard();									//game start, deal two card to each player
+			sw = new ServerWorker();
+			sw.execute();
 			
 		}
 		
+
 	}
 
 }

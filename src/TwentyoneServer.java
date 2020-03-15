@@ -1,14 +1,11 @@
 
 /**
  * 未解决的问题：1.同名的client
- * 接下来要做的事情：	√	庄家在所有玩家都爆了之后要结束游戏		 
- * 					√	如果玩家出现了21点 nature vingt-un,该局游戏直接结束，所有人给该玩家两个筹码
- * 					√	如果出现了21点，庄家身份将交给该玩家
- * 					√	然后庄家点了不再要牌之后，清算比自己分高的有多少，分低的有多少，相应的减去分数。
- * 					√	游戏可以重新开始，所有的玩家状态初始化
- * 问题：				√	一个玩家爆了以后，dealer的button会提前点亮
- * 					√	出现nature 21后，21获胜者自己也收到失败消息，（忘记标记isNature21Winner值了）
- * 					√	Dealer选择stand后，清算结束dealer的button会再次亮起，问题出在接受stand后会再判断一次stand的玩家数量
+ * 接下来要做的事情：		将ServerView放进SwingWorker中，以实现同步更新数据
+ * 						把所有手牌加上属性，并在游戏中展示
+ * 
+ * 
+ * 
  * **/
 import java.io.FileNotFoundException;
 import java.io.FileReader;

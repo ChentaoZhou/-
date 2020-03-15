@@ -214,7 +214,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						parent.stateLabel.setText("Draw");
 						parent.resultLabel.setText("No change, waiting a new round");
 					}
-					//（Dealer专享）庄家清算最后自己分数的变化
+					//(Dealer专享）庄家清算最后自己分数的变化
 					if(p.getMessageType().equals("DEALER_RESULT")) {
 						int stackChange = (Integer)p.getObject();
 						parent.stacks += stackChange;
@@ -247,9 +247,9 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 	private JButton ContinueButton, quitButton, newCardButton, standButton;
 	private JPanel cardPanel;
 	private ReadWorker rw;
-	private ArrayList<Card> cards = new ArrayList<Card>();	//玩家的手牌
-	private int cardsPoints = 0;//玩家手牌的总分数
-	private int stacks=10;		//玩家的筹码
+	private ArrayList<Card> cards = new ArrayList<Card>();	//z玩家的手牌
+	private int cardsPoints = 0;//z玩家手牌的总分数
+	private int stacks=10;		//z玩家的筹码
 
 	public TwentyoneClient() {
 		getContentPane().setLayout(null);
