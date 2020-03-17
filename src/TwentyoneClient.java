@@ -20,13 +20,15 @@ import java.awt.Color;
 import java.awt.GridLayout;
 import java.awt.Font;
 /**
- * 给Client端加上了ArrayList<Card>,存储接收到的手牌，并传递给计算总分的类来计算分数，打在swing上
+ *This is the class of Client(Player) side
+ *, which interact with Server and receive cards from server
  * **/
-
 public class TwentyoneClient extends JFrame implements ActionListener {
 
 	/**
-	 * inner class used for listening from the server
+	 * inner class used for listening from the server and react with 
+	 * corresponding Packages, which is the core interaction part of client in this program
+	 * It also extends SwingWorker so it can print the progress of this game in real time
 	 **/
 	private class ReadWorker extends SwingWorker<Void, Void> {
 		private Socket socket = null;
@@ -45,66 +47,67 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 		}
 
 		/**
-		 * receive message from server
+		 * receive all kinds of packages from server and doing corresponding behaviours
 		 **/
 		public Void doInBackground() {
 			System.out.println("started read worker");
-			Package p = null; // z从server收到一个package，要根据里面的messageType来决定做什么
+			Package p = null; 
 			try {
+				//receive a package and decide what to do based on the messageType 
 				while ((p = (Package) inputStream.readObject()) != null) {
-					// ....z这里打开package，根据type做事情
-					//z只改变stateLabel标签的文字
+					//change the words of the stateLabel
 					if (p.getMessageType().equals("GAME_STATE")) {
 						parent.stateLabel.setText((String) p.getObject());
 					}
-					//z只改变resultLabel标签的文字
+					//change the words of the resultLabel
 					if(p.getMessageType().equals("MESSAGE")) {
 						parent.resultLabel.setText((String) p.getObject());
 					}
-					//z抽牌决定dealer的阶段，收到该消息的玩家调整stateLabel并展示抽到的牌
+					//notify this is the stage to decide a dealer based on drawing card
 					if (p.getMessageType().equals("DEALER")) {
 						parent.stateLabel.setText("This is the stage of choosing dealer by card");
+						//show the drawn card
 						parent.resultLabel.setText("You have draw card: " + ((Card) p.getObject()).getName());
 					}
-					//z收到该信息的玩家将亮起 Dealer图标
+					//this package means you are the dealer,the dealer label of your will be activated
 					if(p.getMessageType().equals("DEALER_LABEL")){
 						parent.dealerLabel.setText("Dealer");
 					}
-					//z收到该信息的玩家（发给所有玩家）都熄灭Dealer图标
+					//disable dealerLabel when receiving this package type
 					if(p.getMessageType().equals("RESET_DEALER")) {
 						parent.dealerLabel.setText("");
 					}
-					
-					
-					
-					
+					/**
+					 * this is the dealing card stage, players get two cards when receiving this
+					 * package, two Card objects will be sent within the package, player stores
+					 * these two cards in its object. 
+					 * **/
 					if(p.getMessageType().equals("CARDS")) {
 						parent.stateLabel.setText("-----Game Start-----");
-						Card card = (Card) p.getObject();			//z把收到的card生成对象
+						Card card = (Card) p.getObject();			//generates the received card object
 						JLabel label = new JLabel(card.getName());
 						label.setHorizontalAlignment(SwingConstants.CENTER);
 						parent.cardPanel.add(label);
 						parent.resultLabel.setText("You draw card: " + card.getName());
-						parent.cards.add(card);						//z将收到的card加到手牌中
-						parent.cardsPoints = PointCounter.returnPoint(cards);	//z计算当前手牌中所有的分数
+						parent.cards.add(card);						// add the card that he received to his card list
+						parent.cardsPoints = PointCounter.returnPoint(cards);	//calculates all the points in the current card list
 						parent.cardLabel.setText("Your Point: "+cardsPoints);
-						//z这里判断玩家当前是不是21点nature venter，如果是直接赢，如果双AA，重新抽一张
-						
-						//z这里只是先告知Server自己是21，如果只有一个21，自己赢，如果是两个21，没有赢家
+						//here to determine if these two cards are nature vingt-un, if it is, win this round
+						//notify the server that "I am the nature vingt-un"
 						if(cardsPoints == 21) {
 							parent.stateLabel.setText("NATURE VINGT-UN~~~ <`21`>");
 							parent.send(new Package("VINGT-UN",""));
 						}
 
 					}
-					//z这是大赢家被告知要加多少筹码给自己
+					//the nature vingt-un player will be told how many points he got in this round
 					if(p.getMessageType().equals("21REWARD")) {
 						parent.resultLabel.setText("You Win ~ Everyone give you 2 stacks");
 						int reward = (Integer)p.getObject();
 						parent.stacks +=reward;
 						parent.stackLabel.setText("Your Stacks: "+parent.stacks);
 					}
-					//z其余玩家都收到一个出现了 nature 21点的消息，都被扣掉两个筹码
+					//the rest players will be notified that there is a nature vingt-un and all give this winner 2 stacks
 					if(p.getMessageType().equals("21LOSE")) {
 						parent.stacks -=2;
 						parent.stackLabel.setText("Your Stacks: "+parent.stacks);
@@ -113,7 +116,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						parent.newCardButton.setEnabled(false);
 						parent.standButton.setEnabled(false);
 					}
-					//z这里加上如果出现两个nature21，大家直接停止这轮游戏等待下轮，没有人需要付钱
+					//if there are two nature vingt-un in this round, nobody wins and no one needs to pay
 					if(p.getMessageType().equals("MUTI_21PLAYERS")){
 						parent.stackLabel.setText("More than one nature 21 players");
 						parent.resultLabel.setText("No one lose, waiting for another round");
@@ -123,18 +126,18 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 					
 					
 					
-					
+					//this happens after player request for another card
 					if(p.getMessageType().equals("CARD")) {
-						Card card = (Card) p.getObject();			//z把收到的card生成对象
+						Card card = (Card) p.getObject();			//generates received card object
 						JLabel label = new JLabel(card.getName());
 						label.setHorizontalAlignment(SwingConstants.CENTER);
 						parent.cardPanel.add(label);
 						parent.resultLabel.setText("Ask for another card, draw: "+((Card) p.getObject()).getName());
-						parent.cards.add(card);						//z将收到的card加到手牌中
-						parent.cardsPoints = PointCounter.returnPoint(cards);	//z计算当前手牌中所有的分数
+						parent.cards.add(card);						// add the card that he received to his card list
+						parent.cardsPoints = PointCounter.returnPoint(cards);	//compute scores of current cards he has
 						parent.cardLabel.setText("Your Point: "+cardsPoints);
-						//z这里判断玩家当前手牌分数是否爆掉，如果爆掉，退出游戏进入waiting list
-						//z这里要判断dealer，因为dealer分数是之后统一扣除，所以dealer之后要自行把这一分加回来。
+						//determine if the total score of player over 21(explode),if so, lose a stack and go to waiting list
+						//Declarer will deduct one point if it explodes as a regular player, and the extra point will be added back later
 						if(cardsPoints>21) {
 							parent.stateLabel.setText("---Points over 21, You lose this round---");
 							parent.resultLabel.setText("You are in waiting list now");
@@ -146,7 +149,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						}
 					
 					}
-					//Server发送QUERY包给每个player，打开他们的Button询问是否要牌
+					//Server send "QUERY" to each player,activate the Buttons and ask them if they want another card 
 					if(p.getMessageType().equals("QUERY")) {
 						parent.resultLabel.setText((String) p.getObject());
 						parent.newCardButton.setEnabled(true);
@@ -155,17 +158,18 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 					if(p.getMessageType().equals("DEALER_MESSAGE")) {
 						parent.resultLabel.setText((String) p.getObject());
 					}
+					//after ordinary players stand, activate the dealer's buttons 
 					if(p.getMessageType().equals("ACTIVATE_DEALER")) {
 						parent.newCardButton.setEnabled(true);
 						parent.standButton.setEnabled(true);
 					}
-					// (Dealer专享）一位玩家爆牌，庄家获得一个筹码
+					// (Dealer only）one player's score over 21(explode) dealer get one stack
 					if(p.getMessageType().equals("PLAYER_EXPLODE")) {
 						parent.stacks++;
 						parent.stackLabel.setText("Your Stacks: "+parent.stacks);
 						parent.resultLabel.setText((String) p.getObject()+" is out, stack++");
 					}
-					//(Dealer专享）所有玩家都已经爆牌之后，庄家停止所有行为，等待Server开始下一局
+					//(Dealer only）after all players' score over 21 (all explode), game stop, waiting for another round
 					if(p.getMessageType().equals("ALL_PLAYER_EXPLODE")) {
 						parent.newCardButton.setEnabled(false);
 						parent.standButton.setEnabled(false);
@@ -173,17 +177,17 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						parent.resultLabel.setText("Waiting for another round start");
 					}
 					
-					//(Dealer专享）只有Dealer会收到DEALER_EXPLODE消息,扣掉对应的筹码数量，这一轮结束
+					//(Dealer only）the corresponding number of chips is deducted, this round over
 					if(p.getMessageType().equals("DEALER_EXPLODE")) {
 						int winners = (Integer)p.getObject();
 						parent.stacks -=winners;
-						parent.stacks ++;  //z因为在dealer爆了之后，会和普通玩家一样先扣一个筹码，所以这里要把之前扣得筹码加回来。
+						parent.stacks ++;  //after the dealer explodes over 21, reduce one stack just like the ordinary players, so need to add one stack back
 						parent.stackLabel.setText("Your Stacks: "+parent.stacks);
 						parent.stateLabel.setText("You lose !!!");
 						parent.resultLabel.setText("You need pay stacks to: "+winners+" Players");
 					
 					}
-					//（player专享）player分数比dealer高
+					//(player only）player's score is higher than dealer's
 					if(p.getMessageType().equals("WIN")) {
 						parent.stacks++;
 						parent.stackLabel.setText("Your Stacks: "+parent.stacks);
@@ -192,7 +196,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						parent.newCardButton.setEnabled(false);
 						parent.standButton.setEnabled(false);
 					}
-					//（player专享）在Dealer爆了之后，其他仍在对局中的玩家会收到一条WIN消息
+					//(player only）receive this after dealer's score over 21 (dealer lose)
 					if(p.getMessageType().equals("WIN_DEALER_EXPLODED")) {
 						parent.stacks++;
 						parent.stackLabel.setText("Your Stacks: "+parent.stacks);
@@ -202,24 +206,24 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						parent.standButton.setEnabled(false);
 					}
 					
-					//(player专享）player的分数低于dealer
+					//(player only）player's score is less than dealer's
 					if(p.getMessageType().equals("LOSE")) {
 						parent.stacks--;
 						parent.stackLabel.setText("Your Stacks: "+parent.stacks);
 						parent.stateLabel.setText("You LOSE...");
 						parent.resultLabel.setText("Lose one stack, waiting a new round");
 					}
-					//(player专享）player和dealer打成平局
+					//(player only）player's score equals to dealer
 					if(p.getMessageType().equals("DRAW")) {
 						parent.stateLabel.setText("Draw");
 						parent.resultLabel.setText("No change, waiting a new round");
 					}
-					//(Dealer专享）庄家清算最后自己分数的变化
+					//(Dealer only）dealer shows his final score change after receive this
 					if(p.getMessageType().equals("DEALER_RESULT")) {
 						int stackChange = (Integer)p.getObject();
 						parent.stacks += stackChange;
 						parent.stackLabel.setText("Your Stacks: "+parent.stacks);
-						parent.disableButton();		//z当所有玩家都stand后 dealer会被激活，这里要重新熄灭Buttons
+						parent.disableButton();		//the dealer will be activated when all the players stand, and Buttons will be needed to disabled again
 						parent.stateLabel.setText("Within rest players you earn: "+stackChange+" stack(s)");
 						parent.resultLabel.setText("waiting a new round");
 						parent.send(new Package("ROUND_OVER",""));
@@ -247,9 +251,9 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 	private JButton ContinueButton, quitButton, newCardButton, standButton;
 	private JPanel cardPanel;
 	private ReadWorker rw;
-	private ArrayList<Card> cards = new ArrayList<Card>();	//z玩家的手牌
-	private int cardsPoints = 0;//z玩家手牌的总分数
-	private int stacks=10;		//z玩家的筹码
+	private ArrayList<Card> cards = new ArrayList<Card>();	//All of cards of Players
+	private int cardsPoints = 0;//the score of all cards of player
+	private int stacks=10;		//stacks of player
 
 	public TwentyoneClient() {
 		getContentPane().setLayout(null);
@@ -334,13 +338,15 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 			e.printStackTrace();
 		}
 
-		// here we start a inner class object to listen 这里创建一个内部类对象，监听端口
+		// here we start a inner class object to listen 
 		rw = new ReadWorker(server, this);
 		rw.execute();
 		System.out.println("HERE");
 
 	}
-
+	/**
+	 * method for sending a package to Server
+	 * **/
 	public void send(Package p) {
 		try {
 			outputStream.writeObject(p);
@@ -349,6 +355,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 			
 		}
 	}
+	//helper method for disable two buttons.
 	public void disableButton() {
 		this.newCardButton.setEnabled(false);
 		this.standButton.setEnabled(false);
@@ -373,7 +380,10 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 		}
 
 	}
-	//玩家选择stand，发送STAND数据包，熄灭Button，进入等待结果环节
+	/**
+	 * the player choose to stand, send "STAND" package, disable Buttons
+	 * and waiting for result
+	 * **/
 	public void standTurn() {
 		send(new Package("STAND",name));
 		this.newCardButton.setEnabled(false);
@@ -381,7 +391,6 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 		this.resultLabel.setText("You have standed, waiting result");
 	}
 	/**
-	 * 初始化玩家数据
 	 * Initiate the data of all Players
 	 * **/
 	public void initiate() {

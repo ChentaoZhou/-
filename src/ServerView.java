@@ -9,107 +9,127 @@ import javax.swing.JButton;
 import java.awt.Font;
 import javax.swing.JTextField;
 import javax.swing.SwingWorker;
-
-public class ServerView extends JFrame implements ActionListener{
-	
+/**
+ * The Swing window of Server which has a button can start a round of game 
+ * and can track the progress of this game in real time.
+ * All Players' behaviours will be printed on the JTextArea.
+ * **/
+public class ServerView extends JFrame implements ActionListener {
+	/**
+	 * A inner class which extends SwingWorker so the Server view window can update
+	 * the progress of the game in real time
+	 **/
 	private class ServerWorker extends SwingWorker<Void, Void> {
 
+		/**
+		 * When a new round of game start(the start button is clicked) it will call
+		 * corresponding methods of the TwentyoneServer object(the real server)
+		 **/
 		protected Void doInBackground() throws Exception {
 			startButton.setEnabled(false);
-			server.initiate();					//initiate game, create deck
-			if(server.getDealer()==null) server.findDealer(); //find a dealer
-			server.dealCard();
+			server.initiate(); // initiate game, create deck
+			if (server.getDealer() == null)
+				server.findDealer(); // find a dealer
+			server.dealCard(); // release two card to each players
 			return null;
 		}
-		
-		
+
 	}
 
-	private TwentyoneServer server;
+	private TwentyoneServer server; // the real server object
 	private JTextArea textArea;
 	private JButton startButton;
 	private JLabel inGamePlayerLabel, waitPlayerLabel;
 	private JScrollPane sp;
 	private ServerWorker sw;
-	
+
+	/**
+	 * The Constructor of Server Swing Window
+	 **/
 	public ServerView(TwentyoneServer server) {
 		this.server = server;
-		
+
 		getContentPane().setLayout(null);
-		this.setSize(693,305);
-		
+		this.setSize(693, 305);
+
 		inGamePlayerLabel = new JLabel("0 players in Game");
 		inGamePlayerLabel.setFont(new Font("Tw Cen MT", Font.PLAIN, 17));
 		inGamePlayerLabel.setBounds(10, 10, 175, 44);
 		getContentPane().add(inGamePlayerLabel);
-		
+
 		waitPlayerLabel = new JLabel("0 players in waiting list");
 		waitPlayerLabel.setFont(new Font("Tw Cen MT", Font.PLAIN, 17));
 		waitPlayerLabel.setBounds(10, 65, 175, 44);
 		getContentPane().add(waitPlayerLabel);
-		
+
 		startButton = new JButton("start");
 		startButton.setFont(new Font("Tw Cen MT", Font.BOLD, 19));
 		startButton.setBounds(31, 182, 97, 39);
 		startButton.addActionListener(this);
 		getContentPane().add(startButton);
-		
+
 		textArea = new JTextArea();
 		textArea.setBounds(195, 11, 260, 232);
-		
-		
+
 		sp = new JScrollPane(textArea);
 		sp.setBounds(195, 11, 454, 234);
 		getContentPane().add(sp);
 		this.setVisible(true);
-		
+
 	}
-	//methods for changing the number of players in the Labels
-	public void refreshInandWait(int in,int wait) {
+
+	// methods for changing the number of players in both Player Label and Waiting
+	// player Label.
+	public void refreshInandWait(int in, int wait) {
 		refreshIn(in);
 		refreshWait(wait);
 	}
+
+	// method for changing the number of Player Label
 	public void refreshIn(int in) {
-		inGamePlayerLabel.setText(in+" players in Game.");
+		inGamePlayerLabel.setText(in + " players in Game.");
 	}
+
+	// method for changing the number of WaitingPlayer Label
 	public void refreshWait(int wait) {
-		waitPlayerLabel.setText(wait+" players are waiting");
+		waitPlayerLabel.setText(wait + " players are waiting");
 	}
-	
-	
-	public JTextArea getTextArea() {
-		return textArea;
-	}
-	public void clearTextArea() { 
-		this.textArea.setText("");
-	}
-	//add String to textArea track the process
+
+	// add String to textArea track the process in real time
 	public void addText(String line) {
 		this.textArea.append(line);
 	}
+
+	public JTextArea getTextArea() {
+		return textArea;
+	}
+
+	public void clearTextArea() {
+		this.textArea.setText("");
+	}
+
 	public JLabel getInGamePlayerLabel() {
 		return inGamePlayerLabel;
 	}
 
-
 	public JLabel getWaitPlayerLabel() {
 		return waitPlayerLabel;
 	}
+
 	public JButton getStartButton() {
 		return startButton;
 	}
 
 	/**
-	 * This calls all operation methods for conducting game
-	 * 这个方法真正的在调用所有的游戏运行方法
-	 * **/
+	 * This swing only contains one Button: Start To start a new round of game
+	 * 
+	 **/
 	public void actionPerformed(ActionEvent e) {
-		if(e.getSource() == startButton) {
+		if (e.getSource() == startButton) {
 			sw = new ServerWorker();
 			sw.execute();
-			
+
 		}
-		
 
 	}
 

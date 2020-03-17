@@ -1,8 +1,10 @@
 
 /**
- * 未解决的问题：1.同名的client
- * 接下来要做的事情：		将ServerView放进SwingWorker中，以实现同步更新数据
- * 						把所有手牌加上属性，并在游戏中展示
+ * 未解决的问题：			同名的client
+ * 						如果同时抽到双AA，重新抽一张牌
+ * 						如果玩家少于2人不能开始游戏
+ * 接下来要做的事情：	√	将ServerView放进SwingWorker中，以实现同步更新数据
+ * 					×	把所有手牌加上属性，并在游戏中展示
  * 
  * 
  * 
@@ -20,7 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Scanner;
-
+/** the Game Server **/
 public class TwentyoneServer implements Runnable {
 
 	/**
@@ -49,34 +51,42 @@ public class TwentyoneServer implements Runnable {
 			}
 		}
 
-		// z这里写：收消息，收到之后做什么
+		/**
+		 * This part is used to receive package from each client thread
+		 * and give corresponding reactions.
+		 * **/
 		public void run() {
 			try {
 				Package p = null;
 				while ((p = (Package) inputStream.readObject()) != null) {
+					//if a player send a "QUIT" package, Server will delete him in this game.
 					if (p.getMessageType().equals("QUIT")) {
 						ArrayList<ClientHandler> deleteArray = new ArrayList<ClientHandler>();
 						deleteArray.add(this);
 						parent.quit(deleteArray);
 					}
+					//call Server's dealOneCard method when client ask for another card.
 					if (p.getMessageType().equals("MORECARD")) {
 						parent.dealOneCard(this);
 					}
-					// z收到了玩家不再要牌的选择，每次都判断是不是所有除了dealer的玩家都已经选择了stand
+					/**
+					 * received the player's choice of no more CARDS, and every time 
+					 * judges whether all the players except the dealer have chosen stand
+					 * **/
 					if (p.getMessageType().equals("STAND")) {
 						if (this.isDealer == true) {
-							// z庄家选择不再要牌，进入结算阶段。
+							// Dealer chooses to stand, enter the settlement stage.
 							int dealerPoint = PointCounter.returnPoint(this.handCards);
 							
-							//z对比其他玩家的卡牌分数,分为三种情况
+							//compares the score of other players' cards to three situations
 							for(ClientHandler client:clients) {
 								if(!client.isDealer) {
 									int playerPoint = PointCounter.returnPoint(client.handCards);
 									if(playerPoint < dealerPoint) {
-										parent.losers++;		//Dealer一共要加多少筹码
+										parent.losers++;		//How many stacks should the Dealer add
 										client.send(new Package("LOSE",""));
 									}else if(playerPoint > dealerPoint) {
-										parent.winners++;		//Dealer一共要减多少筹码
+										parent.winners++;		//How many stacks should the Dealer reduce
 										client.send(new Package("WIN",""));
 									}else {
 										client.send(new Package("DRAW",""));
@@ -86,24 +96,24 @@ public class TwentyoneServer implements Runnable {
 							}
 							int stackChange = losers - winners;
 							view.addText("This round over, within rest players, dealer earn: "+stackChange+"\n");
-							this.send(new Package("DEALER_RESULT",stackChange));	//z将庄家改变的分数发回给client端
+							this.send(new Package("DEALER_RESULT",stackChange));	//sends the dealer's score back to the client side
 						}else {
 							view.addText(this.name + " choose to stand" + "\n");
 							parent.standCounter++;
-							if (standCounter >= clients.size() - 1) { // z其他玩家都不再要牌，开始庄家的回合
+							if (standCounter >= clients.size() - 1) { // after all ordinary client stand, start dealer's turn
 								parent.activateDealer();
 							}
 						}
 					}
-					// z收到了玩家手牌爆炸的消息，把玩家删除这轮游戏放进waiting list,同时要减去standCounter（爆掉相当于stand）
+					//receive the bust (over 21) package, put this bust clientThread into waiting list, delete the standCounter
 					if (p.getMessageType().equals("EXPLOSION")) {
 						
 						if (this.isDealer == true) {
-							//z 如果是庄家爆炸，该轮结束，所有玩家获得一个筹码，庄家不用进入waiting list
+							//if dealer bust(over21), all live players get one stack, this round over.(dealer does not into waiting list)
 							parent.dealerExplode();
 							parent.startNewRound();
 							
-						} else {		//z如果是普通玩家则进入这个爆炸代码
+						} else {		//if ordinary players bust, execute this bust code
 							ArrayList<ClientHandler> loser = new ArrayList<ClientHandler>();
 							loser.add(this);
 							clients.removeAll(loser);
@@ -113,11 +123,11 @@ public class TwentyoneServer implements Runnable {
 							parent.standCounter++;
 							view.addText("standCounter: "+standCounter+"\n");
 							view.addText("clients.size() "+clients.size()+"\n");
-							if (standCounter >= clients.size()) { // z其他玩家都爆炸或者stand后，开始庄家的回合
+							if (standCounter >= clients.size()) { // if all players bust, into dealer's turn and this round over soon
 								view.addText("Dealer's Buttons are activated."+"\n");
 								parent.activateDealer();
 							}
-							//z此代码为给庄家加上一个筹码
+							//add one stack to dealer if one player bust.
 							for(ClientHandler client:clients) {
 								if(client.isDealer == true) {
 									client.send(new Package("PLAYER_EXPLODE",this.name));
@@ -125,6 +135,7 @@ public class TwentyoneServer implements Runnable {
 								}
 							}
 							//z如果所有Player都爆了，庄家胜利，都等待下一局的开始
+							//if all ordinary bust, dealer wins and waiting for a new round
 							if(clients.size()<=1) {
 								for(ClientHandler client:clients) {
 									if(client.isDealer == true) {
@@ -135,12 +146,12 @@ public class TwentyoneServer implements Runnable {
 										client.send(new Package("MESSAGE","Waiting for another round."));
 									}
 								}
-								//z重新开始一轮游戏
+								//start a new round
 								parent.startNewRound();
 							}
 						}
 					}
-					//z有人出现了nature vingt-un，Server返回当前玩家总数的两倍给该玩家（其中不包括该玩家自己）
+					//nature vingt-un appear, Server returns twice the total number of current players to the player (not including the player himself)
 					if(p.getMessageType().equals("VINGT-UN")) {
 						parent.nature21Winner = this;
 						this.isNature21Winner = true;
@@ -150,29 +161,28 @@ public class TwentyoneServer implements Runnable {
 							int reward = 2*(clients.size()-1);
 							this.send(new Package("21REWARD",reward));
 							view.addText(this.name+" get nature 21, big winner. get: "+(reward-2)+"\n");
-							//view.addText("All players pay "+this.name+" 2 stacks"+"\n");
-							//z这里给所有其他玩家都发送消息告知有21点，全部扣2stacks，并进入等待状态
+							//send all rest players package, notify them nature vingt-un, reduce 2 stacks, get into waiting stage
 							for(ClientHandler client:clients) {
 								if(!client.isNature21Winner) {
 									client.send(new Package("21LOSE",this.name));
-									client.send(new Package("RESET_DEALER",""));	//z所有人熄灭dealer图标
+									client.send(new Package("RESET_DEALER",""));	//the rest players all disable dealerLabel
 									client.isDealer = false;
 								}
 							}
-								
-							//z给这个21点玩家设置为新的 Dealer
+							
+							//set this nature vingt-un the new dealer
 							this.isDealer = true;
 							parent.dealer = this;
-							this.send(new Package("DEALER_LABEL",""));	//z点亮该玩家的Dealer图标
+							this.send(new Package("DEALER_LABEL",""));	//activate the dealerLabel of new dealer
 						}else {
-							//z这里是两个21，平局，没有任何人需要付钱，dealer也不变
+							//there are more than 1 nature vingt-un, no one wins and no one need to pay,dealer does not change
 							for(ClientHandler client:clients) {
 								client.send(new Package("MUTI_21PLAYERS",""));
 							}
 							view.addText("More than one nature 21 winner appear, this round over");
 						}
 					}
-					//z重新开始一轮游戏
+					//receive a "start a new round" package
 					if(p.getMessageType().equals("ROUND_OVER")) {
 						parent.startNewRound();
 					}
@@ -202,15 +212,14 @@ public class TwentyoneServer implements Runnable {
 		}
 	}
 	
-	// z这里开始server主类
 	private static ServerSocket server;
 	private static ArrayList<Card> deck;
 	private ArrayList<ClientHandler> clients = new ArrayList<ClientHandler>();
 	private ArrayList<ClientHandler> waitingClients = new ArrayList<ClientHandler>();
 	private ServerView view;
 	private ClientHandler dealer;
-	private int standCounter = 0; // count how many players stand,计算多少玩家选择stand
-	private int losers = 0;			//z只用于计算正常对局下比dealer分数低的玩家（不计入爆炸的玩家）
+	private int standCounter = 0; // count how many players stand
+	private int losers = 0;			//only used to calculate players with lower scores than dealers in normal games (players not included in the bust).
 	private int winners = 0;
 	private int nature21Players = 0;
 	private ClientHandler nature21Winner;
@@ -266,7 +275,7 @@ public class TwentyoneServer implements Runnable {
 	}
 
 	/**
-	 * method for finding the target clientHandler 此方法暂时还未被使用到
+	 * method for finding the target clientHandler 
 	 **/
 	public ClientHandler findClient(String name) {
 		for (ClientHandler client : clients) {
@@ -282,7 +291,7 @@ public class TwentyoneServer implements Runnable {
 	}
 	
 	/**
-	 * 重新开始一局游戏，重置所有玩家状态
+	 * start a new round, initiate all players' state
 	 * **/
 	public void startNewRound() {
 		standCounter = 0;
@@ -307,7 +316,6 @@ public class TwentyoneServer implements Runnable {
 
 	/**
 	 * initiate another round of game: add clients in waiting list to in game list.
-	 * 开始新一轮游戏，所有waiting列表中的玩家被加入游戏
 	 **/
 	public void initiate() {
 		for (ClientHandler client : waitingClients) {
@@ -325,13 +333,13 @@ public class TwentyoneServer implements Runnable {
 
 	/**
 	 * in the start of an round, Server need to select a dealer if there is no
-	 * dealer by the allocated card. 在游戏开始前，如果没有dealer，通过发牌选出一个庄家. 这里注意client手牌有所增加
+	 * dealer by the allocated card. 
 	 **/
 	public void findDealer() {
 		createDeck();
 		outer: while (true) {
 			for (ClientHandler client : clients) {
-				Card c = deck.remove(0); // z删除了原本需要先加进玩家手牌的操作，所以在对局开始前不需要再清空玩家手牌了
+				Card c = deck.remove(0); 
 				Package p = new Package("DEALER", c);
 				client.send(p);
 				try {
@@ -358,8 +366,7 @@ public class TwentyoneServer implements Runnable {
 	}
 
 	/**
-	 * get all cards and store them in a ArrayList deck 重新读取所有的卡牌并存入 deck
-	 * 这个ArrayList中
+	 * get all cards from card.txt and store them in a ArrayList deck 
 	 **/
 	public void createDeck() {
 		FileReader fr;
@@ -383,13 +390,12 @@ public class TwentyoneServer implements Runnable {
 
 	/**
 	 * this is a method used for dealing two cards at first round
-	 * 这个方法用于在对局刚开始给玩家发两张手牌 注意：这里已经用过createDeck()方法洗过牌
 	 **/
 	public void dealCard() {
 		// create the deck first
 		createDeck();
 
-		// z这里分两个循环给玩家发牌
+		// deal card to players, two round of card deal.
 		for (ClientHandler client : clients) {
 			Card c = deck.remove(0);
 			client.handCards.add(c);
@@ -408,8 +414,7 @@ public class TwentyoneServer implements Runnable {
 			client.send(p);
 
 		}
-		// z在这里发完了牌，询问是否要额外加牌，或是stand
-		
+		//after card deal, if there is no nature vingt-un, ask players if they need another card or stand.
 		try {Thread.sleep(500);} catch (InterruptedException e1) {e1.printStackTrace();}
 		view.addText("nature21Player: "+nature21Players+"\n");
 		if(nature21Players<1) {
@@ -418,9 +423,9 @@ public class TwentyoneServer implements Runnable {
 			Package p = new Package("GAME_STATE", "----Game is processing----");
 			client.send(p);
 			if (dealer == client) {
-				client.send(new Package("DEALER_MESSAGE", "Waiting other players to choose"));// 让dealer等待其他玩家选择是否要牌
+				client.send(new Package("DEALER_MESSAGE", "Waiting other players to choose"));//let dealer wait other players to choose
 			} else {
-				Package p1 = new Package("QUERY", "One more Card or Stand ?"); // 询问非dealer的玩家是否要牌
+				Package p1 = new Package("QUERY", "One more Card or Stand ?"); //ask ordinary players
 				client.send(p1);
 			}
 		}
@@ -430,7 +435,7 @@ public class TwentyoneServer implements Runnable {
 	}
 
 	/**
-	 * method for dealing one card if player request. 发一张牌给玩家，如果玩家点击了 Request Card
+	 * method for dealing one card if player request.
 	 **/
 	public void dealOneCard(ClientHandler client) {
 		Card card = deck.remove(0);
@@ -446,22 +451,21 @@ public class TwentyoneServer implements Runnable {
 
 	/**
 	 * Activate dealers turn when other players all have chosen stand
-	 * 激活庄家的选牌或是stand当其他所有玩家都选择不再要牌
 	 **/
 	public void activateDealer() {
 		dealer.send(new Package("ACTIVATE_DEALER", ""));
 	}
 
 	/**
-	 * 庄家手牌爆了，这一轮游戏结束，给所有仍在对局中的玩家发一个筹码
+	 * dealer bust(cards over 21), this round over, give one stack to live players
 	 * **/
 	public void dealerExplode() {
-		winners = clients.size()-1;				//z庄家在爆了之后没有被移入waiting list，所以clients list中仍旧包含庄家
+		winners = clients.size()-1;				//dealer does not move to waiting list, need to count dealer here
 		view.addText("Dealer exploded, survivers get a stack!!!"+"\n");
 		view.addText("There are: "+winners+" winners");
 		for(ClientHandler client: clients) {
 			if(client.isDealer == true) {
-				client.send(new Package("DEALER_EXPLODE",winners)); //这里winner是int但是可以编译，应该是自动装箱改为Integer
+				client.send(new Package("DEALER_EXPLODE",winners)); 
 			}else {
 				client.send(new Package("WIN_DEALER_EXPLODED",""));
 			}

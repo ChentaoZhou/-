@@ -1,11 +1,15 @@
 import java.io.Serializable;
-
+/**
+ * This is the class which implements Serializable 
+ * used for communication between Server and Client.
+ * **/
 public class Package implements Serializable{
-	private String messageType;
-	private Serializable object;
 	
+	private Serializable object;	//Contain the data receiver will use(It can be any type of object）
+	
+	private String messageType;		//this attribute notify receiver that which kind of package it is
 	/**
-	 * messageTypes: PLAYER; CARD; DEALER; DEALER_MORECARD;STAND; QUIT;GAME_STATE; MESSAGE;
+	 * messageTypes: when receiver get the Package object, it will know what to do based on the messageType attribute 
 	 * 
 	 * DEALER_LABEL:		used for notify client he is dealer and show mark on its swing
 	 * CARD:				notify the client that package contains another new Card it request.

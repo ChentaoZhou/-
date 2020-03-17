@@ -1,5 +1,7 @@
 import java.io.Serializable;
-
+/**
+ * Class to store the information of card
+ * **/
 public class Card implements Serializable{
 	private String name;
 	private int number;
