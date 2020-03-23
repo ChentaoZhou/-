@@ -36,17 +36,17 @@ public class ServerView extends JFrame implements ActionListener {
 
 	}
 
-	private TwentyoneServer server; // the real server object
+	private Server server; // the real server object
 	private JTextArea textArea;
 	private JButton startButton;
-	private JLabel inGamePlayerLabel, waitPlayerLabel;
+	private JLabel inGamePlayerLabel, waitPlayerLabel,startLabel;
 	private JScrollPane sp;
 	private ServerWorker sw;
 
 	/**
 	 * The Constructor of Server Swing Window
 	 **/
-	public ServerView(TwentyoneServer server) {
+	public ServerView(Server server) {
 		this.server = server;
 
 		getContentPane().setLayout(null);
@@ -66,6 +66,7 @@ public class ServerView extends JFrame implements ActionListener {
 		startButton.setFont(new Font("Tw Cen MT", Font.BOLD, 19));
 		startButton.setBounds(31, 182, 97, 39);
 		startButton.addActionListener(this);
+		startButton.setEnabled(false);
 		getContentPane().add(startButton);
 
 		textArea = new JTextArea();
@@ -74,6 +75,11 @@ public class ServerView extends JFrame implements ActionListener {
 		sp = new JScrollPane(textArea);
 		sp.setBounds(195, 11, 454, 234);
 		getContentPane().add(sp);
+		
+		startLabel = new JLabel("at least 2 players to start");
+		startLabel.setFont(new Font("Tw Cen MT", Font.PLAIN, 17));
+		startLabel.setBounds(10, 138, 186, 44);
+		getContentPane().add(startLabel);
 		this.setVisible(true);
 
 	}
@@ -104,6 +110,9 @@ public class ServerView extends JFrame implements ActionListener {
 		return textArea;
 	}
 
+	public JLabel getStartLabel() {
+		return startLabel;
+	}
 	public void clearTextArea() {
 		this.textArea.setText("");
 	}
@@ -132,5 +141,4 @@ public class ServerView extends JFrame implements ActionListener {
 		}
 
 	}
-
 }

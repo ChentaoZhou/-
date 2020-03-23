@@ -23,7 +23,7 @@ import java.awt.Font;
  *This is the class of Client(Player) side
  *, which interact with Server and receive cards from server
  * **/
-public class TwentyoneClient extends JFrame implements ActionListener {
+public class Client extends JFrame implements ActionListener {
 
 	/**
 	 * inner class used for listening from the server and react with 
@@ -33,10 +33,10 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 	private class ReadWorker extends SwingWorker<Void, Void> {
 		private Socket socket = null;
 		private ObjectInputStream inputStream = null;
-		private TwentyoneClient parent;
+		private Client parent;
 
 		// constructor
-		public ReadWorker(Socket socket, TwentyoneClient parent) {
+		public ReadWorker(Socket socket, Client parent) {
 			this.socket = socket;
 			this.parent = parent;
 			try {
@@ -58,6 +58,10 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 					//change the words of the stateLabel
 					if (p.getMessageType().equals("GAME_STATE")) {
 						parent.stateLabel.setText((String) p.getObject());
+					}
+					if(p.getMessageType().equals("GAME_START")) {
+						parent.stateLabel.setText((String) p.getObject());
+						parent.quitButton.setEnabled(false);
 					}
 					//change the words of the resultLabel
 					if(p.getMessageType().equals("MESSAGE")) {
@@ -106,6 +110,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						int reward = (Integer)p.getObject();
 						parent.stacks +=reward;
 						parent.stackLabel.setText("Your Stacks: "+parent.stacks);
+						parent.quitButton.setEnabled(true);
 					}
 					//the rest players will be notified that there is a nature vingt-un and all give this winner 2 stacks
 					if(p.getMessageType().equals("21LOSE")) {
@@ -115,6 +120,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						parent.resultLabel.setText("You Pay 2 stacks to "+(String)p.getObject());
 						parent.newCardButton.setEnabled(false);
 						parent.standButton.setEnabled(false);
+						parent.quitButton.setEnabled(true);
 					}
 					//if there are two nature vingt-un in this round, nobody wins and no one needs to pay
 					if(p.getMessageType().equals("MUTI_21PLAYERS")){
@@ -122,6 +128,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						parent.resultLabel.setText("No one lose, waiting for another round");
 						parent.newCardButton.setEnabled(false);
 						parent.standButton.setEnabled(false);
+						parent.quitButton.setEnabled(true);
 					}
 					
 					
@@ -146,6 +153,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 							parent.stackLabel.setText("Your Stacks: "+parent.stacks);
 							parent.newCardButton.setEnabled(false);
 							parent.standButton.setEnabled(false);
+							parent.quitButton.setEnabled(true);
 						}
 					
 					}
@@ -160,6 +168,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 					}
 					//after ordinary players stand, activate the dealer's buttons 
 					if(p.getMessageType().equals("ACTIVATE_DEALER")) {
+						parent.resultLabel.setText("Dealer's turn");
 						parent.newCardButton.setEnabled(true);
 						parent.standButton.setEnabled(true);
 					}
@@ -175,6 +184,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						parent.standButton.setEnabled(false);
 						parent.stateLabel.setText("You win~ All other players exploded");
 						parent.resultLabel.setText("Waiting for another round start");
+						parent.quitButton.setEnabled(true);
 					}
 					
 					//(Dealer only）the corresponding number of chips is deducted, this round over
@@ -185,7 +195,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						parent.stackLabel.setText("Your Stacks: "+parent.stacks);
 						parent.stateLabel.setText("You lose !!!");
 						parent.resultLabel.setText("You need pay stacks to: "+winners+" Players");
-					
+						parent.quitButton.setEnabled(true);
 					}
 					//(player only）player's score is higher than dealer's
 					if(p.getMessageType().equals("WIN")) {
@@ -195,6 +205,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						parent.resultLabel.setText("Earn one stack, waiting a new round");
 						parent.newCardButton.setEnabled(false);
 						parent.standButton.setEnabled(false);
+						parent.quitButton.setEnabled(true);
 					}
 					//(player only）receive this after dealer's score over 21 (dealer lose)
 					if(p.getMessageType().equals("WIN_DEALER_EXPLODED")) {
@@ -204,6 +215,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						parent.resultLabel.setText("Earn one stack, waiting a new round");
 						parent.newCardButton.setEnabled(false);
 						parent.standButton.setEnabled(false);
+						parent.quitButton.setEnabled(true);
 					}
 					
 					//(player only）player's score is less than dealer's
@@ -212,11 +224,13 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						parent.stackLabel.setText("Your Stacks: "+parent.stacks);
 						parent.stateLabel.setText("You LOSE...");
 						parent.resultLabel.setText("Lose one stack, waiting a new round");
+						parent.quitButton.setEnabled(true);
 					}
 					//(player only）player's score equals to dealer
 					if(p.getMessageType().equals("DRAW")) {
 						parent.stateLabel.setText("Draw");
 						parent.resultLabel.setText("No change, waiting a new round");
+						parent.quitButton.setEnabled(true);
 					}
 					//(Dealer only）dealer shows his final score change after receive this
 					if(p.getMessageType().equals("DEALER_RESULT")) {
@@ -227,6 +241,7 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 						parent.stateLabel.setText("Within rest players you earn: "+stackChange+" stack(s)");
 						parent.resultLabel.setText("waiting a new round");
 						parent.send(new Package("ROUND_OVER",""));
+						parent.quitButton.setEnabled(true);
 					}
 					if(p.getMessageType().equals("INITIATE")) {
 						parent.initiate();
@@ -248,14 +263,14 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 	private String name = "PlayerX";
 	private ObjectOutputStream outputStream;
 	private JLabel stateLabel, nameLabel, stackLabel, resultLabel,dealerLabel,cardLabel;
-	private JButton ContinueButton, quitButton, newCardButton, standButton;
+	private JButton quitButton, newCardButton, standButton;
 	private JPanel cardPanel;
 	private ReadWorker rw;
 	private ArrayList<Card> cards = new ArrayList<Card>();	//All of cards of Players
 	private int cardsPoints = 0;//the score of all cards of player
 	private int stacks=10;		//stacks of player
 
-	public TwentyoneClient() {
+	public Client() {
 		getContentPane().setLayout(null);
 		this.setSize(384, 497);
 		name = JOptionPane.showInputDialog(this, "What's your name?");
@@ -266,24 +281,19 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 		quitButton.addActionListener(this);
 		getContentPane().add(quitButton);
 
-		ContinueButton = new JButton("Continue");
-		ContinueButton.setBounds(260, 350, 102, 40);
-		ContinueButton.setEnabled(false);
-		getContentPane().add(ContinueButton);
-
 		newCardButton = new JButton("Request Card");
-		newCardButton.setBounds(260, 249, 102, 40);
+		newCardButton.setBounds(228, 249, 134, 40);
 		newCardButton.setEnabled(false);
 		newCardButton.addActionListener(this);
 		getContentPane().add(newCardButton);
 
 		standButton = new JButton("Stand");
-		standButton.setBounds(260, 299, 102, 40);
+		standButton.setBounds(228, 315, 134, 40);
 		standButton.setEnabled(false);
 		standButton.addActionListener(this);
 		getContentPane().add(standButton);
 
-		stateLabel = new JLabel("Game State");
+		stateLabel = new JLabel("");
 		stateLabel.setFont(new Font("Tahoma", Font.BOLD | Font.ITALIC, 16));
 		stateLabel.setBounds(10, 11, 352, 48);
 		getContentPane().add(stateLabel);
@@ -294,11 +304,12 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 		getContentPane().add(nameLabel);
 
 		stackLabel = new JLabel("Stack: "+stacks);
+		stackLabel.setForeground(new Color(255, 0, 0));
 		stackLabel.setFont(new Font("Times New Roman", Font.BOLD, 14));
 		stackLabel.setBounds(10, 145, 219, 35);
 		getContentPane().add(stackLabel);
 
-		resultLabel = new JLabel("Game result");
+		resultLabel = new JLabel("");
 		resultLabel.setFont(new Font("Tw Cen MT", Font.PLAIN, 19));
 		resultLabel.setBounds(10, 61, 352, 48);
 		getContentPane().add(resultLabel);
@@ -365,9 +376,6 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 	 * acionPerformed
 	 **/
 	public void actionPerformed(ActionEvent e) {
-		if (e.getSource() == ContinueButton) {
-			send(new Package("CONTINUE", name));
-		}
 		if(e.getSource()==quitButton) {
 			send(new Package("QUIT",name));
 			this.dispose();
@@ -414,6 +422,6 @@ public class TwentyoneClient extends JFrame implements ActionListener {
 	}
 
 	public static void main(String[] args) {
-		new TwentyoneClient();
+		new Client();
 	}
 }

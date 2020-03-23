@@ -2,7 +2,9 @@
 /**
  * 未解决的问题：			同名的client
  * 						如果同时抽到双AA，重新抽一张牌
- * 						如果玩家少于2人不能开始游戏
+ * 					√	如果玩家少于2人不能开始游戏
+ * 						对draw方法同步
+ * 					√	改成中途不能退出
  * 接下来要做的事情：	√	将ServerView放进SwingWorker中，以实现同步更新数据
  * 					×	把所有手牌加上属性，并在游戏中展示
  * 
@@ -23,7 +25,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Scanner;
 /** the Game Server **/
-public class TwentyoneServer implements Runnable {
+public class Server implements Runnable {
 
 	/**
 	 * inner class ClientHandler which used for receiving message from each client
@@ -31,7 +33,7 @@ public class TwentyoneServer implements Runnable {
 	 **/
 	private class ClientHandler implements Runnable {
 		private Socket client;
-		private TwentyoneServer parent = null;
+		private Server parent = null;
 		private ObjectInputStream inputStream = null;
 		private ObjectOutputStream outputStream = null;
 		private String name;
@@ -40,7 +42,7 @@ public class TwentyoneServer implements Runnable {
 		private boolean isNature21Winner;
 
 		// constructor of inner class
-		public ClientHandler(Socket client, TwentyoneServer parent) {
+		public ClientHandler(Socket client, Server parent) {
 			this.client = client;
 			this.parent = parent;
 			try {
@@ -63,7 +65,17 @@ public class TwentyoneServer implements Runnable {
 					if (p.getMessageType().equals("QUIT")) {
 						ArrayList<ClientHandler> deleteArray = new ArrayList<ClientHandler>();
 						deleteArray.add(this);
+						if(this.isDealer == true) {
+							parent.dealer = null;
+							this.isDealer = false;
+						}
 						parent.quit(deleteArray);
+						int number = clients.size()+ waitingClients.size();
+						if(number<2) {
+							view.addText("There is not enough players to start a game");
+							view.getStartButton().setEnabled(false);
+							view.getStartLabel().setText("at least 2 players to start");
+						}
 					}
 					//call Server's dealOneCard method when client ask for another card.
 					if (p.getMessageType().equals("MORECARD")) {
@@ -225,7 +237,7 @@ public class TwentyoneServer implements Runnable {
 	private ClientHandler nature21Winner;
 
 	// constructor
-	public TwentyoneServer() {
+	public Server() {
 		view = new ServerView(this);
 		try {
 			server = new ServerSocket(8888);
@@ -251,8 +263,15 @@ public class TwentyoneServer implements Runnable {
 						this.waitingClients.add(client);
 						view.addText(client.name + " has joined in" + "\n");
 						view.getWaitPlayerLabel().setText(waitingClients.size() + " players in waiting list");
-						Package waitp = new Package("GAME_STATE", "Previous round is still going, please wait..");
+						Package waitp = new Package("GAME_STATE", "Please waiting for a new round");
 						client.send(waitp);
+						
+						//z这里加上如果参与游戏人数少于2不能开始
+						int number = clients.size()+waitingClients.size();
+						if(number>1) {
+							view.getStartButton().setEnabled(true);
+							view.getStartLabel().setText("Ready to start");
+						}
 					}
 					break;
 				}
@@ -326,7 +345,7 @@ public class TwentyoneServer implements Runnable {
 		view.refreshIn(clients.size());
 		view.addText("----Game will start soon!----" + "\n");
 		for (ClientHandler client : clients) {
-			Package p = new Package("GAME_STATE", "Game Start!");
+			Package p = new Package("GAME_START", "Game Start!");
 			client.send(p);
 		}
 	}
@@ -420,12 +439,12 @@ public class TwentyoneServer implements Runnable {
 		if(nature21Players<1) {
 		for (ClientHandler client : clients) {
 			try {Thread.sleep(500);} catch (InterruptedException e) {e.printStackTrace();}
-			Package p = new Package("GAME_STATE", "----Game is processing----");
+			Package p = new Package("GAME_STATE", "----Game is running----");
 			client.send(p);
 			if (dealer == client) {
 				client.send(new Package("DEALER_MESSAGE", "Waiting other players to choose"));//let dealer wait other players to choose
 			} else {
-				Package p1 = new Package("QUERY", "One more Card or Stand ?"); //ask ordinary players
+				Package p1 = new Package("QUERY", "Choose one more Card or Stand "); //ask ordinary players
 				client.send(p1);
 			}
 		}
@@ -485,7 +504,7 @@ public class TwentyoneServer implements Runnable {
 	}
 
 	public static void main(String[] args) {
-		Thread t = new Thread(new TwentyoneServer());
+		Thread t = new Thread(new Server());
 		t.start();
 		try {
 			t.join();
