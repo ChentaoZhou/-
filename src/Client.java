@@ -99,7 +99,7 @@ public class Client extends JFrame implements ActionListener {
 						//here to determine if these two cards are nature vingt-un, if it is, win this round
 						//notify the server that "I am the nature vingt-un"
 						if(cardsPoints == 21) {
-							parent.stateLabel.setText("NATURE VINGT-UN~~~ <`21`>");
+							parent.stateLabel.setText("NATURE VINGT-UN~~~ < 21 >");
 							parent.send(new Package("VINGT-UN",""));
 						}
 
