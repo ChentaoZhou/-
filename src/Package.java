@@ -5,7 +5,7 @@ import java.io.Serializable;
  * **/
 public class Package implements Serializable{
 	
-	private Serializable object;	//Contain the data receiver will use(It can be any type of object）
+	private Serializable object;	//Contain the data receiver will use.It can be any type of object
 	
 	private String messageType;		//this attribute notify receiver that which kind of package it is
 	/**
@@ -14,7 +14,7 @@ public class Package implements Serializable{
 	 * 21REWARD:			(only for nature 21 winner)let him know how many stacks he get
 	 * 21LOSE				Notify all players that there is a nature 21 winner, this round over, waiting for another round
 	 * ACTIVATE_DEALER:		Activate dealer's buttons(activate dealer's turn for choose another card or standing)
-	 * ALL_PLAYER_EXPLODE：	(only for dealer)after all player exploded, game stop, dealer win
+	 * ALL_PLAYER_EXPLODE	(only for dealer)after all player exploded, game stop, dealer win
 	 * CARDS:				Notify clients at the beginning, there are two cards are sending to them
 	 * CARD:				Notify the client that package contains another new Card it request.
 	 * DEALER				Server send to client to notify now is the stage to choose a Dealer

@@ -269,6 +269,8 @@ public class Client extends JFrame implements ActionListener {
 	private ArrayList<Card> cards = new ArrayList<Card>();	//All of cards of Players
 	private int cardsPoints = 0;//the score of all cards of player
 	private int stacks=10;		//stacks of player
+	private final static int PORT =8888;
+	private final static String IP = "127.0.0.1";
 
 	public Client() {
 		getContentPane().setLayout(null);
@@ -414,7 +416,7 @@ public class Client extends JFrame implements ActionListener {
 	 **/
 	private void connect() {
 		try {
-			server = new Socket("127.0.0.1", 8888);
+			server = new Socket(IP, PORT);
 			System.out.println("Connected");
 		} catch (IOException e) {
 			e.printStackTrace();

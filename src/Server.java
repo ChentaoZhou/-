@@ -1,16 +1,3 @@
-
-/**
- * 未解决的问题：			同名的client
- * 						如果同时抽到双AA，重新抽一张牌
- * 					√	如果玩家少于2人不能开始游戏
- * 						对draw方法同步
- * 					√	改成中途不能退出
- * 接下来要做的事情：	√	将ServerView放进SwingWorker中，以实现同步更新数据
- * 					×	把所有手牌加上属性，并在游戏中展示
- * 
- * 
- * 
- * **/
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
@@ -72,7 +59,7 @@ public class Server implements Runnable {
 						parent.quit(deleteArray);
 						int number = clients.size()+ waitingClients.size();
 						if(number<2) {
-							view.addText("There is not enough players to start a game");
+							view.addText("There is not enough players to start a game\n");
 							view.getStartButton().setEnabled(false);
 							view.getStartLabel().setText("at least 2 players to start");
 						}
@@ -146,7 +133,7 @@ public class Server implements Runnable {
 									view.addText(this.name +" pay one stack to dealer"+"\n");
 								}
 							}
-							//z如果所有Player都爆了，庄家胜利，都等待下一局的开始
+							
 							//if all ordinary bust, dealer wins and waiting for a new round
 							if(clients.size()<=1) {
 								for(ClientHandler client:clients) {
@@ -235,12 +222,13 @@ public class Server implements Runnable {
 	private int winners = 0;
 	private int nature21Players = 0;
 	private ClientHandler nature21Winner;
+	private final static int PORT = 8888; 
 
 	// constructor
 	public Server() {
 		view = new ServerView(this);
 		try {
-			server = new ServerSocket(8888);
+			server = new ServerSocket(PORT);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -266,7 +254,8 @@ public class Server implements Runnable {
 						Package waitp = new Package("GAME_STATE", "Please waiting for a new round");
 						client.send(waitp);
 						
-						//z这里加上如果参与游戏人数少于2不能开始
+						
+						//if players less then 2, game cannot start
 						int number = clients.size()+waitingClients.size();
 						if(number>1) {
 							view.getStartButton().setEnabled(true);
@@ -293,21 +282,7 @@ public class Server implements Runnable {
 		view.addText(a.get(0).name + " leave the game-------" + "\n");
 	}
 
-	/**
-	 * method for finding the target clientHandler 
-	 **/
-	public ClientHandler findClient(String name) {
-		for (ClientHandler client : clients) {
-			if (client.name.equals("name"))
-				return client;
-		}
-		for (ClientHandler client : waitingClients) {
-			if (client.name.equals("name"))
-				return client;
-		}
-		return null;
 
-	}
 	
 	/**
 	 * start a new round, initiate all players' state
@@ -457,6 +432,7 @@ public class Server implements Runnable {
 	 * method for dealing one card if player request.
 	 **/
 	public void dealOneCard(ClientHandler client) {
+		synchronized(this) {
 		Card card = deck.remove(0);
 		client.handCards.add(card);
 		view.addText(client.name + " ask for another card, draw: " + card.getName() + "\n");
@@ -466,6 +442,7 @@ public class Server implements Runnable {
 			e.printStackTrace();
 		}
 		client.send(new Package("CARD", card));
+		}
 	}
 
 	/**

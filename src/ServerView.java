@@ -50,7 +50,7 @@ public class ServerView extends JFrame implements ActionListener {
 		this.server = server;
 
 		getContentPane().setLayout(null);
-		this.setSize(693, 305);
+		this.setSize(576, 302);
 
 		inGamePlayerLabel = new JLabel("0 players in Game");
 		inGamePlayerLabel.setFont(new Font("Tw Cen MT", Font.PLAIN, 17));
@@ -73,7 +73,7 @@ public class ServerView extends JFrame implements ActionListener {
 		textArea.setBounds(195, 11, 260, 232);
 
 		sp = new JScrollPane(textArea);
-		sp.setBounds(195, 11, 454, 234);
+		sp.setBounds(195, 11, 353, 237);
 		getContentPane().add(sp);
 		
 		startLabel = new JLabel("at least 2 players to start");
